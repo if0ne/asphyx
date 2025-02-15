@@ -1,3 +1,5 @@
+mod graphics;
+
 use std::num::NonZero;
 
 use tracing_subscriber::layer::SubscriberExt;
