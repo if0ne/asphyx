@@ -1,4 +1,9 @@
+pub mod allocators;
+pub mod mock;
+
 use std::marker::PhantomData;
+
+use allocators::LinearIndexAllocator;
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub struct Handle<T> {
@@ -11,7 +16,7 @@ pub struct Handle<T> {
 pub struct Pool<T> {
     array: Vec<Option<T>>,
     gens: Vec<u32>,
-    free_list: Vec<usize>,
+    allocator: LinearIndexAllocator,
 }
 
 impl<T> Pool<T> {
@@ -21,18 +26,18 @@ impl<T> Pool<T> {
         Self {
             array: Vec::with_capacity(capacity),
             gens: Vec::with_capacity(capacity),
-            free_list: Vec::new(),
+            allocator: LinearIndexAllocator::new(),
         }
     }
 
     pub fn push(&mut self, value: T) -> Handle<T> {
-        let idx = self.free_list.pop().unwrap_or_else(|| {
-            let idx = self.array.len();
+        let idx = self.allocator.allocate();
+
+        if idx == self.array.len() {
             self.array.push(None);
             self.gens.push(1);
+        }
 
-            idx
-        });
         self.array[idx] = Some(value);
 
         Handle {
@@ -53,7 +58,7 @@ impl<T> Pool<T> {
 
         let value = self.array[handle.id as usize].take();
         self.gens[handle.id as usize] += 1;
-        self.free_list.push(handle.id as usize);
+        self.allocator.free(handle.id as usize);
 
         value
     }
