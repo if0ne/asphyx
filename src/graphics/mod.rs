@@ -1,43 +1,84 @@
 use std::marker::PhantomData;
 
-const ID_BITS: usize = 32;
-const GENERATION_BITS: usize = 28;
-
-const ID_MASK: usize = !0 >> ID_BITS;
-const DEVICE_MASK: usize = !0 << (ID_BITS + GENERATION_BITS);
-const GENERATION_MASK: usize = !0 & !ID_MASK & !DEVICE_MASK;
-
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub struct Handle<T> {
-    pub v: usize,
+    id: u32,
+    gen: u32,
     _marker: PhantomData<T>,
 }
 
-impl<T> Handle<T> {
-    pub fn new(id: usize, gen: usize, device_mask: usize) -> Self {
+#[derive(Debug)]
+pub struct Pool<T> {
+    array: Vec<Option<T>>,
+    gens: Vec<u32>,
+    free_list: Vec<usize>,
+}
+
+impl<T> Pool<T> {
+    pub fn new(capacity: Option<usize>) -> Self {
+        let capacity = capacity.unwrap_or(128);
+
         Self {
-            v: device_mask << (ID_BITS + GENERATION_BITS) | gen << ID_BITS | id,
+            array: Vec::with_capacity(capacity),
+            gens: Vec::with_capacity(capacity),
+            free_list: Vec::new(),
+        }
+    }
+
+    pub fn push(&mut self, value: T) -> Handle<T> {
+        let idx = self.free_list.pop().unwrap_or_else(|| {
+            let idx = self.array.len();
+            self.array.push(None);
+            self.gens.push(1);
+
+            idx
+        });
+        self.array[idx] = Some(value);
+
+        Handle {
+            id: idx as u32,
+            gen: self.gens[idx],
             _marker: PhantomData,
         }
     }
 
-    pub fn id(&self) -> usize {
-        self.v & ID_MASK
+    pub fn remove(&mut self, handle: Handle<T>) -> Option<T> {
+        if handle.id as usize >= self.array.len() || handle.id as usize >= self.gens.len() {
+            return None;
+        }
+
+        if handle.gen != self.gens[handle.id as usize] {
+            return None;
+        }
+
+        let value = self.array[handle.id as usize].take();
+        self.gens[handle.id as usize] += 1;
+        self.free_list.push(handle.id as usize);
+
+        value
     }
 
-    pub fn gen(&self) -> usize {
-        self.v & GENERATION_MASK
+    pub fn get(&self, handle: Handle<T>) -> Option<&T> {
+        if handle.id as usize >= self.array.len() || handle.id as usize >= self.gens.len() {
+            return None;
+        }
+
+        if handle.gen != self.gens[handle.id as usize] {
+            return None;
+        }
+
+        self.array[handle.id as usize].as_ref()
     }
 
-    pub fn device_mask(&self) -> usize {
-        self.v & DEVICE_MASK
+    pub fn get_mut(&mut self, handle: Handle<T>) -> Option<&mut T> {
+        if handle.id as usize >= self.array.len() || handle.id as usize >= self.gens.len() {
+            return None;
+        }
+
+        if handle.gen != self.gens[handle.id as usize] {
+            return None;
+        }
+
+        self.array[handle.id as usize].as_mut()
     }
 }
-
-impl<T> PartialEq for Handle<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.id() == other.id() && self.gen() == other.gen()
-    }
-}
-
-impl<T> Eq for Handle<T> {}

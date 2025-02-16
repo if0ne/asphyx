@@ -2,6 +2,7 @@ mod graphics;
 
 use std::num::NonZero;
 
+use graphics::Pool;
 use tracing_subscriber::layer::SubscriberExt;
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
@@ -82,7 +83,7 @@ impl winit::application::ApplicationHandler for Application {
 }
 
 fn main() {
-    let console_log = tracing_subscriber::fmt::Layer::new()
+    /*let console_log = tracing_subscriber::fmt::Layer::new()
         .with_ansi(true)
         .with_writer(std::io::stdout);
 
@@ -90,10 +91,27 @@ fn main() {
 
     let _ = tracing::subscriber::set_global_default(subscriber);
 
-    let event_loop = winit::event_loop::EventLoop::new().expect("Failed to create event loop");
+    let event_loop = winit::event_loop::EventLoop::new().expect("failed to create event loop");
 
     event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
 
     let mut app = Application { wnd_ctx: None };
-    event_loop.run_app(&mut app).expect("Failed to run app");
+    event_loop.run_app(&mut app).expect("failed to run app");*/
+
+    let mut pool = Pool::new(None);
+
+    let handle = pool.push(42);
+    let handle2 = pool.push(69);
+
+    assert_eq!(Some(&42), pool.get(handle));
+    assert_eq!(Some(&mut 42), pool.get_mut(handle));
+    assert!(pool.remove(handle).is_some());
+    assert_eq!(None, pool.get(handle));
+    assert_eq!(None, pool.get_mut(handle));
+    assert!(pool.remove(handle).is_none());
+
+    let _handle = pool.push(420);
+
+    assert_eq!(Some(&69), pool.get(handle2));
+    assert_eq!(Some(&mut 69), pool.get_mut(handle2));
 }
