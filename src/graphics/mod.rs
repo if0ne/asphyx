@@ -1,15 +1,37 @@
 pub mod allocators;
 pub mod mock;
+pub mod types;
 
 use std::marker::PhantomData;
 
 use allocators::LinearIndexAllocator;
 
-#[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub struct Handle<T> {
     id: u32,
     gen: u32,
     _marker: PhantomData<T>,
+}
+
+impl<T> Clone for Handle<T> {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id,
+            gen: self.gen,
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<T> Copy for Handle<T> {}
+
+impl<T> Default for Handle<T> {
+    fn default() -> Self {
+        Self {
+            id: 0,
+            gen: 0,
+            _marker: PhantomData,
+        }
+    }
 }
 
 #[derive(Debug)]
