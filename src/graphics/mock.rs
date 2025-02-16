@@ -3,7 +3,7 @@ use std::{
     sync::{atomic::AtomicU64, Arc},
 };
 
-use bytemuck::{cast_slice_mut, Pod};
+use bytemuck::{cast_slice_mut, checked::cast_slice, Pod};
 use parking_lot::Mutex;
 
 use super::{
@@ -19,6 +19,12 @@ pub struct RenderBackend {
 }
 
 impl RenderBackend {
+    pub fn new() -> Self {
+        Self {
+            devices: vec![Arc::new(RenderDevice::new())],
+        }
+    }
+
     pub fn get_all_devices<'a>(&'a self) -> impl Iterator<Item = &'a RenderDevice> + 'a {
         self.devices.iter().map(|v| &**v)
     }
@@ -91,7 +97,7 @@ impl RenderDevice {
 
                 dst_buffer
             } else {
-                cast_slice_mut(&mut buffer.buf).clone_from_slice(content);
+                buffer.buf.clone_from_slice(cast_slice(&content));
 
                 self.buffers.lock().push(buffer)
             }
@@ -269,10 +275,12 @@ impl<'a> BlitEncoder<'a> {
         dst: Handle<Buffer>,
         src: Handle<Buffer>,
     ) {
-        let guard = device.buffers.lock();
+        let mut guard = device.buffers.lock();
 
-        let _src = guard.get(src).expect("failed to get buffer");
-        let _dst = guard.get(dst).expect("failed to get buffer");
+        let src = { guard.get(src).expect("failed to get buffer").buf.clone() };
+        let dst = guard.get_mut(dst).expect("failed to get buffer");
+
+        dst.buf.clone_from_slice(&src);
     }
 }
 
@@ -280,6 +288,7 @@ pub struct RenderPipeline {}
 
 pub struct ComputePipeline {}
 
+#[derive(Debug)]
 pub struct Buffer {
     buf: Vec<u8>,
     size: usize,
