@@ -2,7 +2,10 @@ mod graphics;
 
 use std::num::NonZero;
 
-use graphics::{mock::RenderBackend, types::BufferUsage};
+use graphics::{
+    mock::RenderBackend,
+    types::{BufferUsage, MemoryType},
+};
 use tracing_subscriber::layer::SubscriberExt;
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
@@ -85,10 +88,11 @@ impl winit::application::ApplicationHandler for Application {
 fn main() {
     let backend = RenderBackend::new();
     let device = backend.get_device(0);
-    let buffer = device.create_buffer(graphics::types::BufferDesc {
+    let buffer = device.create_buffer(graphics::types::CreateBufferInfo {
         size: 4,
         stride: 0,
-        usage: BufferUsage::Storage,
+        usage: BufferUsage::Uniform,
+        mem_ty: None,
         content: Some(&[42]),
     });
 

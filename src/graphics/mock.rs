@@ -8,7 +8,8 @@ use parking_lot::Mutex;
 
 use super::types::{
     BindGroupDesc, BindGroupLayoutDesc, BufferDesc, BufferUsage, CommandQueueType,
-    ComputePipelineDesc, ImageDesc, ImageViewDesc, RenderPipelineDesc, SyncPoint,
+    ComputePipelineDesc, CreateBufferInfo, CreateImageInfo, CreateImageViewInfo, ImageDesc,
+    ImageViewDesc, MemoryType, RenderPipelineDesc, SyncPoint,
 };
 
 pub struct RenderBackend {
@@ -50,19 +51,22 @@ impl RenderDevice {
         Arc::new(CommandQueue::new(ty, cb_count))
     }
 
-    pub fn create_buffer<T: Pod>(&self, desc: BufferDesc<T>) -> Arc<Buffer> {
+    pub fn create_buffer<T: Pod>(&self, desc: CreateBufferInfo<T>) -> Arc<Buffer> {
         let buffer = Arc::new(Buffer {
             buf: Mutex::new(vec![0; desc.size]),
-            size: desc.size,
-            stride: desc.stride,
-            usage: desc.usage,
+            desc: BufferDesc {
+                size: desc.size,
+                stride: desc.stride,
+                usage: desc.usage,
+                mem_ty: desc.mem_ty.unwrap_or(MemoryType::Upload), // TODO: Define mem type by usage
+            },
         });
 
         if let Some(content) = desc.content {
             if !desc.usage.contains(BufferUsage::Copy) {
                 let mut cmd = self.io_queue.create_command_buffer();
 
-                let src_buffer = self.create_buffer(BufferDesc {
+                let src_buffer = self.create_buffer(CreateBufferInfo {
                     usage: BufferUsage::Copy,
                     ..desc
                 });
@@ -82,12 +86,60 @@ impl RenderDevice {
         buffer
     }
 
-    pub fn create_image(&mut self, desc: ImageDesc) -> Arc<Image> {
-        todo!()
+    pub fn create_image(&self, desc: CreateImageInfo) -> Arc<Image> {
+        let image = Arc::new(Image {
+            buf: Arc::new(Mutex::new(vec![0; 128])), // TODO: Calculate size
+            desc: ImageDesc {
+                width: desc.width,
+                height: desc.height,
+                array: desc.array,
+                levels: desc.levels,
+                format: desc.format,
+                usage: desc.usage,
+                mem_ty: desc.mem_ty.unwrap_or(MemoryType::Device), // TODO: Define mem type by usage
+            },
+            view: ImageViewDesc {
+                mip_slice: 0,
+                plane_slice: 0,
+                array: 0..desc.array,
+            },
+            is_view: false,
+        });
+
+        if let Some(content) = desc.content {
+            let mut cmd = self.io_queue.create_command_buffer();
+
+            let src_buffer = self.create_buffer(CreateBufferInfo {
+                usage: BufferUsage::Copy,
+                size: (desc.width * desc.height * desc.array * 4) as usize, // TODO: Calculate size
+                stride: 0,
+                mem_ty: None,
+                content: Some(content),
+            });
+
+            {
+                let io_encoder = cmd.blit_encoder();
+                io_encoder.copy_buffer_to_image(&image, &src_buffer);
+            }
+
+            self.io_queue.push_cmd_buffer(cmd);
+            self.io_queue.commit();
+        };
+
+        image
     }
 
-    pub fn create_image_view(&mut self, desc: ImageViewDesc) -> Arc<Image> {
-        todo!()
+    pub fn create_image_view(&mut self, image: &Image, desc: CreateImageViewInfo) -> Arc<Image> {
+        Arc::new(Image {
+            buf: Arc::clone(&image.buf), // TODO: Calculate size
+            desc: image.desc.clone(),
+            view: ImageViewDesc {
+                mip_slice: desc.mip_slice,
+                plane_slice: desc.plane_slice,
+                array: desc.array,
+            },
+            is_view: true,
+        })
     }
 
     pub fn create_bind_group_layout(&mut self, desc: BindGroupLayoutDesc) -> Arc<BindGroupLayout> {
@@ -243,6 +295,10 @@ impl<'a> BlitEncoder<'a> {
     pub fn copy_buffer_to_buffer(&self, dst: &Buffer, src: &Buffer) {
         dst.buf.lock().clone_from_slice(&src.buf.lock());
     }
+
+    pub fn copy_buffer_to_image(&self, dst: &Image, src: &Buffer) {
+        dst.buf.lock().clone_from_slice(&src.buf.lock());
+    }
 }
 
 pub struct RenderPipeline {}
@@ -252,12 +308,16 @@ pub struct ComputePipeline {}
 #[derive(Debug)]
 pub struct Buffer {
     buf: Mutex<Vec<u8>>,
-    size: usize,
-    stride: usize,
-    usage: BufferUsage,
+    desc: BufferDesc,
 }
 
-pub struct Image {}
+#[derive(Debug)]
+pub struct Image {
+    buf: Arc<Mutex<Vec<u8>>>,
+    desc: ImageDesc,
+    view: ImageViewDesc,
+    is_view: bool,
+}
 
 pub struct BindGroupLayout {}
 
