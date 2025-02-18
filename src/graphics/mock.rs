@@ -329,10 +329,7 @@ impl<'a> BlitEncoder<'a> {
         src: Handle<Buffer>,
     ) {
         let mut guard = rd.buffers.lock();
-        let [Some(dst), Some(src)] = guard.get_many([dst, src]).expect("failed to get buffers")
-        else {
-            panic!("failed to get buffers");
-        };
+        let [dst, src] = guard.get_many([dst, src]).expect("failed to get buffers");
 
         dst.buf.clone_from_slice(&src.buf);
     }

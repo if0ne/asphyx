@@ -2,7 +2,7 @@ pub mod allocators;
 pub mod mock;
 pub mod types;
 
-use std::{marker::PhantomData, usize};
+use std::{marker::PhantomData, mem::MaybeUninit, usize};
 
 use allocators::LinearIndexAllocator;
 
@@ -71,8 +71,19 @@ pub struct Pool<T> {
 
 #[derive(Debug)]
 struct PoolEntry<T> {
-    item: Option<T>,
+    item: MaybeUninit<T>,
     gen: u32,
+    active: bool,
+}
+
+impl<T> Drop for PoolEntry<T> {
+    fn drop(&mut self) {
+        if self.active {
+            unsafe {
+                self.item.assume_init_drop();
+            }
+        }
+    }
 }
 
 impl<T> Pool<T> {
@@ -90,34 +101,40 @@ impl<T> Pool<T> {
 
         let gen = if idx == self.array.len() {
             self.array.push(PoolEntry {
-                item: Some(value),
+                item: MaybeUninit::new(value),
                 gen: 1,
+                active: true,
             });
 
             1
         } else {
-            self.array[idx].item = Some(value);
+            self.array[idx].item = MaybeUninit::new(value);
+            self.array[idx].active = true;
             self.array[idx].gen
         };
 
         Handle::new(idx as u32, gen)
     }
 
-    pub fn remove(&mut self, handle: Handle<T>) -> Option<T> {
+    pub fn remove(&mut self, handle: Handle<T>) {
         if let Some(e) = self.array.get_mut(handle.index()) {
             if e.gen != handle.gen() as u32 {
                 std::hint::cold_path();
-                return None;
+                return;
             }
 
             self.allocator.free(handle.index());
             e.gen += 1;
+            e.active = false;
 
-            e.item.take()
-        } else {
-            std::hint::cold_path();
-            None
+            unsafe {
+                e.item.assume_init_drop();
+            }
+
+            return;
         }
+
+        std::hint::cold_path();
     }
 
     pub fn get(&self, handle: Handle<T>) -> Option<&T> {
@@ -126,7 +143,8 @@ impl<T> Pool<T> {
                 std::hint::cold_path();
                 return None;
             }
-            e.item.as_ref()
+
+            unsafe { Some(e.item.assume_init_ref()) }
         } else {
             std::hint::cold_path();
             None
@@ -139,17 +157,15 @@ impl<T> Pool<T> {
                 std::hint::cold_path();
                 return None;
             }
-            e.item.as_mut()
+
+            unsafe { Some(e.item.assume_init_mut()) }
         } else {
             std::hint::cold_path();
             None
         }
     }
 
-    pub fn get_many<const N: usize>(
-        &mut self,
-        handles: [Handle<T>; N],
-    ) -> Option<[Option<&mut T>; N]> {
+    pub fn get_many<const N: usize>(&mut self, handles: [Handle<T>; N]) -> Option<[&mut T; N]> {
         let indices = handles.map(|v| v.index());
 
         let entries = self.array.get_disjoint_mut(indices).ok()?;
@@ -163,6 +179,6 @@ impl<T> Pool<T> {
             return None;
         }
 
-        Some(entries.map(|e| e.item.as_mut()))
+        Some(entries.map(|e| unsafe { e.item.assume_init_mut() }))
     }
 }
