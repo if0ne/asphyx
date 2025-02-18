@@ -6,9 +6,10 @@ use std::{marker::PhantomData, usize};
 
 use allocators::LinearIndexAllocator;
 
+#[derive(Debug)]
 pub struct Handle<T> {
     id: usize,
-    _marker: PhantomData<T>,
+    _marker: PhantomData<fn() -> T>,
 }
 
 impl<T> Handle<T> {
@@ -30,7 +31,7 @@ impl<T> Handle<T> {
 
     #[inline]
     pub fn gen(&self) -> usize {
-        self.id & Self::GEN_MASK
+        (self.id & Self::GEN_MASK) >> usize::BITS / 2
     }
 }
 
@@ -53,6 +54,14 @@ impl<T> Default for Handle<T> {
         }
     }
 }
+
+impl<T> PartialEq for Handle<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl<T> Eq for Handle<T> {}
 
 #[derive(Debug)]
 pub struct Pool<T> {
@@ -141,7 +150,7 @@ impl<T> Pool<T> {
         &mut self,
         handles: [Handle<T>; N],
     ) -> Option<[Option<&mut T>; N]> {
-        let indices = handles.map(|v| v.id);
+        let indices = handles.map(|v| v.index());
 
         let entries = self.array.get_disjoint_mut(indices).ok()?;
 
