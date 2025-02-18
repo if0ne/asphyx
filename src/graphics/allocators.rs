@@ -13,18 +13,23 @@ impl LinearIndexAllocator {
     }
 
     pub fn allocate(&mut self) -> usize {
-        self.free_list.pop().unwrap_or_else(|| {
+        if let Some(idx) = self.free_list.pop() {
+            idx
+        } else {
             let idx = self.size;
             self.size += 1;
 
             idx
-        })
+        }
     }
 
     pub fn free(&mut self, idx: usize) {
-        if idx < self.size {
-            self.free_list.push(idx);
+        if idx >= self.size {
+            std::hint::cold_path();
+            return;
         }
+
+        self.free_list.push(idx);
     }
 }
 
@@ -63,6 +68,7 @@ impl<const N: usize> RingBufferIndexAllocator<N> {
 
     pub fn allocate(&mut self, size: usize) -> Option<usize> {
         if size > self.capacity {
+            std::hint::cold_path();
             return None;
         }
 
@@ -82,6 +88,7 @@ impl<const N: usize> RingBufferIndexAllocator<N> {
                 return Some(idx);
             } else {
                 if size > self.back {
+                    std::hint::cold_path();
                     return None;
                 }
 
@@ -96,6 +103,7 @@ impl<const N: usize> RingBufferIndexAllocator<N> {
             }
         } else {
             if self.front + size > self.back {
+                std::hint::cold_path();
                 return None;
             }
 
