@@ -7,19 +7,19 @@ use std::{marker::PhantomData, mem::MaybeUninit, usize};
 use allocators::LinearIndexAllocator;
 
 #[derive(Debug)]
-pub struct Handle<T> {
+pub struct Handle<T, C: Cookie = GenCookie> {
     id: usize,
-    _marker: PhantomData<fn() -> T>,
+    _marker: PhantomData<fn() -> (T, C)>,
 }
 
-impl<T> Handle<T> {
+impl<T, C: Cookie> Handle<T, C> {
     const ID_MASK: usize = !0 >> usize::BITS / 2;
-    const GEN_MASK: usize = !0 << usize::BITS / 2;
+    const COOKIE_MASK: usize = !0 << usize::BITS / 2;
 
     #[inline]
-    pub fn new(id: u32, gen: u32) -> Self {
+    pub fn new(id: u32, cookie: C) -> Self {
         Self {
-            id: ((gen as usize) << usize::BITS / 2) | id as usize,
+            id: (cookie.get_repr() << usize::BITS / 2) | id as usize,
             _marker: PhantomData,
         }
     }
@@ -30,12 +30,12 @@ impl<T> Handle<T> {
     }
 
     #[inline]
-    pub fn gen(&self) -> usize {
-        (self.id & Self::GEN_MASK) >> usize::BITS / 2
+    pub fn cookie(&self) -> C {
+        C::get_cookie((self.id & Self::COOKIE_MASK) >> usize::BITS / 2)
     }
 }
 
-impl<T> Clone for Handle<T> {
+impl<T, C: Cookie> Clone for Handle<T, C> {
     fn clone(&self) -> Self {
         Self {
             id: self.id,
@@ -44,9 +44,9 @@ impl<T> Clone for Handle<T> {
     }
 }
 
-impl<T> Copy for Handle<T> {}
+impl<T, C: Cookie> Copy for Handle<T, C> {}
 
-impl<T> Default for Handle<T> {
+impl<T, C: Cookie> Default for Handle<T, C> {
     fn default() -> Self {
         Self {
             id: usize::MAX,
@@ -55,13 +55,13 @@ impl<T> Default for Handle<T> {
     }
 }
 
-impl<T> PartialEq for Handle<T> {
+impl<T, C: Cookie> PartialEq for Handle<T, C> {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
-impl<T> Eq for Handle<T> {}
+impl<T, C: Cookie> Eq for Handle<T, C> {}
 
 #[derive(Debug)]
 pub struct Pool<T> {
@@ -72,13 +72,12 @@ pub struct Pool<T> {
 #[derive(Debug)]
 struct PoolEntry<T> {
     item: MaybeUninit<T>,
-    gen: u32,
-    active: bool,
+    gen: GenCookie,
 }
 
 impl<T> Drop for PoolEntry<T> {
     fn drop(&mut self) {
-        if self.active {
+        if self.gen.1 {
             unsafe {
                 self.item.assume_init_drop();
             }
@@ -96,36 +95,35 @@ impl<T> Pool<T> {
         }
     }
 
-    pub fn push(&mut self, value: T) -> Handle<T> {
+    pub fn push(&mut self, value: T) -> Handle<T, GenCookie> {
         let idx = self.allocator.allocate();
 
         let gen = if idx == self.array.len() {
             self.array.push(PoolEntry {
                 item: MaybeUninit::new(value),
-                gen: 1,
-                active: true,
+                gen: GenCookie(1, true),
             });
 
-            1
+            GenCookie(1, true)
         } else {
             self.array[idx].item = MaybeUninit::new(value);
-            self.array[idx].active = true;
+            self.array[idx].gen.1 = true;
             self.array[idx].gen
         };
 
         Handle::new(idx as u32, gen)
     }
 
-    pub fn remove(&mut self, handle: Handle<T>) {
+    pub fn remove(&mut self, handle: Handle<T, GenCookie>) {
         if let Some(e) = self.array.get_mut(handle.index()) {
-            if e.gen != handle.gen() as u32 {
+            if e.gen != handle.cookie() {
                 std::hint::cold_path();
                 return;
             }
 
             self.allocator.free(handle.index());
-            e.gen += 1;
-            e.active = false;
+            e.gen.0 += 1;
+            e.gen.1 = false;
 
             unsafe {
                 e.item.assume_init_drop();
@@ -137,9 +135,9 @@ impl<T> Pool<T> {
         std::hint::cold_path();
     }
 
-    pub fn get(&self, handle: Handle<T>) -> Option<&T> {
+    pub fn get(&self, handle: Handle<T, GenCookie>) -> Option<&T> {
         if let Some(e) = self.array.get(handle.index()) {
-            if e.gen != handle.gen() as u32 {
+            if e.gen != handle.cookie() {
                 std::hint::cold_path();
                 return None;
             }
@@ -151,9 +149,9 @@ impl<T> Pool<T> {
         }
     }
 
-    pub fn get_mut(&mut self, handle: Handle<T>) -> Option<&mut T> {
+    pub fn get_mut(&mut self, handle: Handle<T, GenCookie>) -> Option<&mut T> {
         if let Some(e) = self.array.get_mut(handle.index()) {
-            if e.gen != handle.gen() as u32 {
+            if e.gen != handle.cookie() {
                 std::hint::cold_path();
                 return None;
             }
@@ -165,7 +163,10 @@ impl<T> Pool<T> {
         }
     }
 
-    pub fn get_many<const N: usize>(&mut self, handles: [Handle<T>; N]) -> Option<[&mut T; N]> {
+    pub fn get_many<const N: usize>(
+        &mut self,
+        handles: [Handle<T, GenCookie>; N],
+    ) -> Option<[&mut T; N]> {
         let indices = handles.map(|v| v.index());
 
         let entries = self.array.get_disjoint_mut(indices).ok()?;
@@ -173,12 +174,35 @@ impl<T> Pool<T> {
         if !entries
             .iter()
             .zip(handles.iter())
-            .all(|(e, h)| e.gen == h.gen() as u32)
+            .all(|(e, h)| e.gen == h.cookie())
         {
             std::hint::cold_path();
             return None;
         }
 
         Some(entries.map(|e| unsafe { e.item.assume_init_mut() }))
+    }
+}
+
+pub trait Cookie: Copy + Sized {
+    fn get_cookie(raw: usize) -> Self;
+    fn get_repr(&self) -> usize;
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct GenCookie(usize, bool);
+
+impl Cookie for GenCookie {
+    #[inline]
+    fn get_cookie(raw: usize) -> Self {
+        let value = raw & (!0 >> (usize::BITS / 2 + 1));
+        let flag = (raw >> usize::BITS / 2 - 1) & 1 != 0;
+
+        GenCookie(value, flag)
+    }
+
+    #[inline]
+    fn get_repr(&self) -> usize {
+        ((self.1 as usize) << usize::BITS / 2) | self.0
     }
 }
