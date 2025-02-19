@@ -6,6 +6,16 @@ use std::{marker::PhantomData, mem::MaybeUninit, usize};
 
 use allocators::LinearIndexAllocator;
 
+#[cfg(target_pointer_width = "32")]
+type usize_half = u16;
+
+#[cfg(target_pointer_width = "64")]
+type usize_half = u32;
+
+const HALF_USIZE: usize = usize::BITS as usize / 2;
+const ID_MASK: usize = (1 << HALF_USIZE) - 1;
+const COOKIE_MASK: usize = !((1 << HALF_USIZE) - 1);
+
 #[derive(Debug)]
 pub struct Handle<T, C: Cookie = GenCookie> {
     id: usize,
@@ -13,9 +23,6 @@ pub struct Handle<T, C: Cookie = GenCookie> {
 }
 
 impl<T, C: Cookie> Handle<T, C> {
-    const ID_MASK: usize = !0 >> usize::BITS / 2;
-    const COOKIE_MASK: usize = !0 << usize::BITS / 2;
-
     #[inline]
     pub fn new(id: u32, cookie: C) -> Self {
         Self {
@@ -26,12 +33,12 @@ impl<T, C: Cookie> Handle<T, C> {
 
     #[inline]
     pub fn index(&self) -> usize {
-        self.id & Self::ID_MASK
+        self.id & ID_MASK
     }
 
     #[inline]
     pub fn cookie(&self) -> C {
-        C::get_cookie((self.id & Self::COOKIE_MASK) >> usize::BITS / 2)
+        C::get_cookie((self.id & COOKIE_MASK) >> usize::BITS / 2)
     }
 }
 
@@ -77,7 +84,7 @@ struct PoolEntry<T> {
 
 impl<T> Drop for PoolEntry<T> {
     fn drop(&mut self) {
-        if self.gen.1 {
+        if self.gen.active {
             unsafe {
                 self.item.assume_init_drop();
             }
@@ -101,13 +108,19 @@ impl<T> Pool<T> {
         let gen = if idx == self.array.len() {
             self.array.push(PoolEntry {
                 item: MaybeUninit::new(value),
-                gen: GenCookie(1, true),
+                gen: GenCookie {
+                    gen: 1,
+                    active: true,
+                },
             });
 
-            GenCookie(1, true)
+            GenCookie {
+                gen: 1,
+                active: true,
+            }
         } else {
             self.array[idx].item = MaybeUninit::new(value);
-            self.array[idx].gen.1 = true;
+            self.array[idx].gen.active = true;
             self.array[idx].gen
         };
 
@@ -122,8 +135,8 @@ impl<T> Pool<T> {
             }
 
             self.allocator.free(handle.index());
-            e.gen.0 += 1;
-            e.gen.1 = false;
+            e.gen.gen = e.gen.gen.wrapping_add(1);
+            e.gen.active = false;
 
             unsafe {
                 e.item.assume_init_drop();
@@ -190,19 +203,25 @@ pub trait Cookie: Copy + Sized {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GenCookie(usize, bool);
+pub struct GenCookie {
+    gen: usize_half,
+    active: bool,
+}
 
 impl Cookie for GenCookie {
     #[inline]
     fn get_cookie(raw: usize) -> Self {
-        let value = raw & (!0 >> (usize::BITS / 2 + 1));
-        let flag = (raw >> usize::BITS / 2 - 1) & 1 != 0;
+        let value = raw & ((1 << (HALF_USIZE - 1)) - 1);
+        let flag = (raw >> (HALF_USIZE - 1)) & 1 != 0;
 
-        GenCookie(value, flag)
+        GenCookie {
+            gen: value as usize_half,
+            active: flag,
+        }
     }
 
     #[inline]
     fn get_repr(&self) -> usize {
-        ((self.1 as usize) << usize::BITS / 2) | self.0
+        ((self.active as usize) << (HALF_USIZE - 1)) | self.gen as usize
     }
 }
