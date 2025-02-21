@@ -6,13 +6,12 @@ use std::{
 use bytemuck::{checked::cast_slice, Pod};
 use parking_lot::Mutex;
 
-use super::{
-    types::{
-        BindGroupLayoutDesc, BufferDesc, BufferUsage, CommandQueueType, ComputePipelineDesc,
-        CreateBufferInfo, CreateImageInfo, CreateImageViewInfo, ImageDesc, ImageViewDesc,
-        MemoryType, RenderPipelineDesc, SyncPoint,
-    },
-    Handle, Pool,
+use crate::allocators::{Handle, Pool};
+
+use super::types::{
+    BindGroupLayoutDesc, BufferDesc, BufferUsage, CommandQueueType, ComputePipelineDesc,
+    CreateBufferInfo, CreateImageInfo, CreateImageViewInfo, ImageDesc, ImageViewDesc, MemoryType,
+    RenderPipelineDesc, SyncPoint,
 };
 
 pub struct RenderBackend {

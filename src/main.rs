@@ -1,5 +1,6 @@
 #![feature(cold_path)]
 
+mod allocators;
 mod graphics;
 
 use std::num::NonZero;
