@@ -3,6 +3,10 @@ use std::ops::Range;
 use bytemuck::Pod;
 use oxidx::dx;
 
+use crate::allocators::Handle;
+
+use super::traits::Api;
+
 pub type SyncPoint = u64;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -166,4 +170,26 @@ pub struct Binding {
 
 pub struct BindGroupLayoutDesc<'a> {
     pub bindings: &'a [Binding],
+}
+
+pub struct PipelineLayoutDesc<'a, A: Api> {
+    pub groups: &'a [Handle<A::BindGroupLayout>],
+}
+
+#[derive(Debug)]
+pub struct BufferDescriptor<A: Api> {
+    pub buffer: Handle<A::Buffer>,
+    pub slot: u32,
+}
+
+#[derive(Debug)]
+pub struct ImageDescriptor<A: Api> {
+    pub image: Handle<A::Image>,
+    pub slot: u32,
+}
+
+pub struct BindGroupDesc<'a, A: Api> {
+    pub space: u32,
+    pub buffers: &'a [BufferDescriptor<A>],
+    pub images: &'a [ImageDescriptor<A>],
 }

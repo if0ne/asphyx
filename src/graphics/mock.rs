@@ -8,10 +8,13 @@ use parking_lot::Mutex;
 
 use crate::allocators::{Handle, Pool};
 
-use super::types::{
-    BindGroupLayoutDesc, BufferDesc, BufferUsage, CommandQueueType, ComputePipelineDesc,
-    CreateBufferInfo, CreateImageInfo, CreateImageViewInfo, ImageDesc, ImageViewDesc, MemoryType,
-    RenderPipelineDesc, SyncPoint,
+use super::{
+    traits::CommandQueue as _,
+    types::{
+        BindGroupDesc, BindGroupLayoutDesc, BufferDesc, BufferUsage, CommandQueueType,
+        ComputePipelineDesc, CreateBufferInfo, CreateImageInfo, CreateImageViewInfo, ImageDesc,
+        ImageViewDesc, MemoryType, PipelineLayoutDesc, RenderPipelineDesc, SyncPoint,
+    },
 };
 
 pub struct RenderBackend {
@@ -24,12 +27,27 @@ impl RenderBackend {
             devices: vec![Arc::new(RenderDevice::new())],
         }
     }
+}
 
-    pub fn get_all_devices<'a>(&'a self) -> impl Iterator<Item = &'a RenderDevice> + 'a {
+impl super::traits::Api for RenderBackend {
+    type Device = RenderDevice;
+    type CommandQueue = CommandQueue;
+    type CommandBuffer = CommandBuffer;
+
+    type Buffer = Buffer;
+    type Image = Image;
+    type BindGroupLayout = BindGroupLayout;
+    type PipelineLayout = PipelineLayout;
+    type BindGroup = BindGroup;
+    type TemporaryBindGroup = TemporaryBindGroup;
+    type RenderPipeline = RenderPipeline;
+    type ComputePipeline = ComputePipeline;
+
+    fn get_all_devices<'a>(&'a self) -> impl Iterator<Item = &'a Self::Device> + 'a {
         self.devices.iter().map(|v| &**v)
     }
 
-    pub fn get_device(self, index: usize) -> Arc<RenderDevice> {
+    fn get_device(self, index: usize) -> Arc<Self::Device> {
         Arc::clone(&self.devices[index])
     }
 }
@@ -56,8 +74,10 @@ impl RenderDevice {
             io_queue: CommandQueue::new(CommandQueueType::Io, None),
         }
     }
+}
 
-    pub fn create_command_queue(
+impl super::traits::Device<RenderBackend> for RenderDevice {
+    fn create_command_queue(
         self: &Arc<Self>,
         ty: CommandQueueType,
         cb_count: Option<usize>,
@@ -65,7 +85,7 @@ impl RenderDevice {
         Arc::new(CommandQueue::new(ty, cb_count))
     }
 
-    pub fn create_buffer<T: Pod>(&self, desc: CreateBufferInfo<T>) -> Handle<Buffer> {
+    fn create_buffer<T: Pod>(&self, desc: CreateBufferInfo<T>) -> Handle<Buffer> {
         let mut buffer = Buffer {
             buf: vec![0; desc.size],
             desc: BufferDesc {
@@ -108,7 +128,7 @@ impl RenderDevice {
         handle
     }
 
-    pub fn create_image(&self, desc: CreateImageInfo) -> Handle<Image> {
+    fn create_image(&self, desc: CreateImageInfo) -> Handle<Image> {
         let image = self.images.lock().push(Image {
             buf: Arc::new(Mutex::new(vec![0; 128])), // TODO: Calculate size
             desc: ImageDesc {
@@ -152,11 +172,7 @@ impl RenderDevice {
         image
     }
 
-    pub fn create_image_view(
-        &self,
-        image: Handle<Image>,
-        desc: CreateImageViewInfo,
-    ) -> Handle<Image> {
+    fn create_image_view(&self, image: Handle<Image>, desc: CreateImageViewInfo) -> Handle<Image> {
         let (buf, img_desc) = {
             let guard = self.images.lock();
             let image = guard.get(image).expect("failed to get image");
@@ -176,33 +192,36 @@ impl RenderDevice {
         })
     }
 
-    pub fn create_bind_group_layout(
-        &mut self,
-        desc: BindGroupLayoutDesc,
-    ) -> Handle<BindGroupLayout> {
+    fn create_bind_group_layout(&mut self, desc: BindGroupLayoutDesc) -> Handle<BindGroupLayout> {
         self.bind_group_layouts.lock().push(BindGroupLayout {})
     }
 
-    pub fn create_pipeline_layout(&mut self, desc: PipelineLayoutDesc) -> Handle<PipelineLayout> {
+    fn create_pipeline_layout(
+        &mut self,
+        desc: PipelineLayoutDesc<RenderBackend>,
+    ) -> Handle<PipelineLayout> {
         self.pipeline_layouts.lock().push(PipelineLayout {})
     }
 
-    pub fn create_bind_group(&mut self, desc: BindGroupDesc) -> Handle<BindGroup> {
+    fn create_bind_group(&mut self, desc: BindGroupDesc<RenderBackend>) -> Handle<BindGroup> {
         self.bind_groups.lock().push(BindGroup {})
     }
 
-    pub fn create_temp_bind_group(&mut self, desc: BindGroupDesc) -> Handle<TemporaryBindGroup> {
+    fn create_temp_bind_group(
+        &mut self,
+        desc: BindGroupDesc<RenderBackend>,
+    ) -> Handle<TemporaryBindGroup> {
         todo!()
     }
 
-    pub fn create_render_pipeline_state(
+    fn create_render_pipeline_state(
         &mut self,
         desc: &RenderPipelineDesc,
     ) -> Handle<RenderPipeline> {
         todo!()
     }
 
-    pub fn create_compute_pipeline_state(
+    fn create_compute_pipeline_state(
         &mut self,
         desc: &ComputePipelineDesc,
     ) -> Handle<ComputePipeline> {
@@ -241,7 +260,17 @@ impl CommandQueue {
         }
     }
 
-    pub fn create_command_buffer(&self) -> CommandBuffer {
+    fn signal(&self) -> SyncPoint {
+        self.fence.inc_value()
+    }
+
+    fn is_complete(&self, value: SyncPoint) -> bool {
+        self.fence.is_complete(value)
+    }
+}
+
+impl super::traits::CommandQueue<RenderBackend> for CommandQueue {
+    fn create_command_buffer(&self) -> CommandBuffer {
         if let Some(buffer) = self.in_record.lock().pop() {
             return buffer;
         }
@@ -267,15 +296,15 @@ impl CommandQueue {
         CommandBuffer { entry }
     }
 
-    pub fn stash_cmd_buffer(&self, cmd_buffer: CommandBuffer) {
+    fn stash_cmd_buffer(&self, cmd_buffer: CommandBuffer) {
         self.in_record.lock().push(cmd_buffer);
     }
 
-    pub fn push_cmd_buffer(&self, cmd_buffer: CommandBuffer) {
+    fn push_cmd_buffer(&self, cmd_buffer: CommandBuffer) {
         self.pending.lock().push(cmd_buffer);
     }
 
-    pub fn commit(&self) -> SyncPoint {
+    fn commit(&self) -> SyncPoint {
         let cmd_buffers = self.pending.lock().drain(..).collect::<Vec<_>>();
 
         let fence_value = self.signal();
@@ -287,14 +316,6 @@ impl CommandQueue {
             }));
 
         fence_value
-    }
-
-    fn signal(&self) -> SyncPoint {
-        self.fence.inc_value()
-    }
-
-    fn is_complete(&self, value: SyncPoint) -> bool {
-        self.fence.is_complete(value)
     }
 }
 
@@ -410,27 +431,5 @@ impl LocalFence {
 
 pub struct SharedFence {}
 
-pub struct PipelineLayoutDesc<'a> {
-    pub groups: &'a [Handle<BindGroupLayout>],
-}
-
 #[derive(Debug)]
 pub struct PipelineLayout {}
-
-#[derive(Debug)]
-pub struct BufferDescriptor {
-    pub buffer: Handle<Buffer>,
-    pub slot: u32,
-}
-
-#[derive(Debug)]
-pub struct ImageDescriptor {
-    pub image: Handle<Image>,
-    pub slot: u32,
-}
-
-pub struct BindGroupDesc<'a> {
-    pub space: u32,
-    pub buffers: &'a [BufferDescriptor],
-    pub images: &'a [ImageDescriptor],
-}

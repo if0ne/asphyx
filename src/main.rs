@@ -5,7 +5,11 @@ mod graphics;
 
 use std::num::NonZero;
 
-use graphics::{mock::RenderBackend, types::BufferUsage};
+use graphics::{
+    mock::RenderBackend,
+    traits::{Api, Device},
+    types::BufferUsage,
+};
 use tracing_subscriber::layer::SubscriberExt;
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
