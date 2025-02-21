@@ -8,9 +8,9 @@ use parking_lot::Mutex;
 
 use super::{
     types::{
-        BindGroupDesc, BindGroupLayoutDesc, BufferDesc, BufferUsage, CommandQueueType,
-        ComputePipelineDesc, CreateBufferInfo, CreateImageInfo, CreateImageViewInfo, ImageDesc,
-        ImageViewDesc, MemoryType, RenderPipelineDesc, SyncPoint,
+        BindGroupLayoutDesc, BufferDesc, BufferUsage, CommandQueueType, ComputePipelineDesc,
+        CreateBufferInfo, CreateImageInfo, CreateImageViewInfo, ImageDesc, ImageViewDesc,
+        MemoryType, RenderPipelineDesc, SyncPoint,
     },
     Handle, Pool,
 };
@@ -38,6 +38,10 @@ impl RenderBackend {
 pub struct RenderDevice {
     buffers: Mutex<Pool<Buffer>>,
     images: Mutex<Pool<Image>>,
+    bind_group_layouts: Mutex<Pool<BindGroupLayout>>,
+    bind_groups: Mutex<Pool<BindGroup>>,
+    pipeline_layouts: Mutex<Pool<PipelineLayout>>,
+
     io_queue: CommandQueue,
 }
 
@@ -46,6 +50,10 @@ impl RenderDevice {
         Self {
             buffers: Mutex::new(Pool::new(None)),
             images: Mutex::new(Pool::new(None)),
+            bind_group_layouts: Mutex::new(Pool::new(None)),
+            bind_groups: Mutex::new(Pool::new(None)),
+            pipeline_layouts: Mutex::new(Pool::new(None)),
+
             io_queue: CommandQueue::new(CommandQueueType::Io, None),
         }
     }
@@ -173,11 +181,15 @@ impl RenderDevice {
         &mut self,
         desc: BindGroupLayoutDesc,
     ) -> Handle<BindGroupLayout> {
-        todo!()
+        self.bind_group_layouts.lock().push(BindGroupLayout {})
+    }
+
+    pub fn create_pipeline_layout(&mut self, desc: PipelineLayoutDesc) -> Handle<PipelineLayout> {
+        self.pipeline_layouts.lock().push(PipelineLayout {})
     }
 
     pub fn create_bind_group(&mut self, desc: BindGroupDesc) -> Handle<BindGroup> {
-        todo!()
+        self.bind_groups.lock().push(BindGroup {})
     }
 
     pub fn create_temp_bind_group(&mut self, desc: BindGroupDesc) -> Handle<TemporaryBindGroup> {
@@ -363,6 +375,7 @@ pub struct Image {
     is_view: bool,
 }
 
+#[derive(Debug)]
 pub struct BindGroupLayout {}
 
 pub struct BindGroup {}
@@ -397,3 +410,28 @@ impl LocalFence {
 }
 
 pub struct SharedFence {}
+
+pub struct PipelineLayoutDesc<'a> {
+    pub groups: &'a [Handle<BindGroupLayout>],
+}
+
+#[derive(Debug)]
+pub struct PipelineLayout {}
+
+#[derive(Debug)]
+pub struct BufferDescriptor {
+    pub buffer: Handle<Buffer>,
+    pub slot: u32,
+}
+
+#[derive(Debug)]
+pub struct ImageDescriptor {
+    pub image: Handle<Image>,
+    pub slot: u32,
+}
+
+pub struct BindGroupDesc<'a> {
+    pub space: u32,
+    pub buffers: &'a [BufferDescriptor],
+    pub images: &'a [ImageDescriptor],
+}

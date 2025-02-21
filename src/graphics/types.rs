@@ -149,6 +149,21 @@ pub struct ImageViewDesc {
     pub array: Range<u32>,
 }
 
-pub struct BindGroupLayoutDesc {}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BindingType {
+    Uniform,
+    Texture,
+    Sampler,
+    Storage,
+}
 
-pub struct BindGroupDesc {}
+#[derive(Clone, Debug)]
+pub struct Binding {
+    pub slot: u32,
+    pub count: u32,
+    pub ty: BindingType,
+}
+
+pub struct BindGroupLayoutDesc<'a> {
+    pub bindings: &'a [Binding],
+}
