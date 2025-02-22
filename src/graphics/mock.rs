@@ -15,6 +15,7 @@ use super::{
         ComputePipelineDesc, CreateBufferInfo, CreateImageInfo, CreateImageViewInfo, ImageDesc,
         ImageViewDesc, MemoryType, PipelineLayoutDesc, RenderPipelineDesc, SyncPoint,
     },
+    Backend,
 };
 
 pub struct RenderBackend {
@@ -22,9 +23,9 @@ pub struct RenderBackend {
 }
 
 impl RenderBackend {
-    pub fn new() -> Self {
+    pub(super) fn new() -> Self {
         Self {
-            devices: vec![Arc::new(RenderDevice::new())],
+            devices: vec![Arc::new(RenderDevice::new(0))],
         }
     }
 }
@@ -47,29 +48,35 @@ impl super::traits::Api for RenderBackend {
         self.devices.iter().map(|v| &**v)
     }
 
-    fn get_device(self, index: usize) -> Arc<Self::Device> {
+    fn get_device(&self, index: usize) -> Arc<Self::Device> {
         Arc::clone(&self.devices[index])
     }
 }
 
 pub struct RenderDevice {
+    device_id: usize,
     buffers: Mutex<Pool<Buffer>>,
     images: Mutex<Pool<Image>>,
     bind_group_layouts: Mutex<Pool<BindGroupLayout>>,
     bind_groups: Mutex<Pool<BindGroup>>,
     pipeline_layouts: Mutex<Pool<PipelineLayout>>,
+    render_pipeline: Mutex<Pool<RenderPipeline>>,
+    compute_pipeline: Mutex<Pool<ComputePipeline>>,
 
     io_queue: CommandQueue,
 }
 
 impl RenderDevice {
-    pub fn new() -> Self {
+    fn new(device_id: usize) -> Self {
         Self {
+            device_id,
             buffers: Mutex::new(Pool::new(None)),
             images: Mutex::new(Pool::new(None)),
             bind_group_layouts: Mutex::new(Pool::new(None)),
             bind_groups: Mutex::new(Pool::new(None)),
             pipeline_layouts: Mutex::new(Pool::new(None)),
+            render_pipeline: Mutex::new(Pool::new(None)),
+            compute_pipeline: Mutex::new(Pool::new(None)),
 
             io_queue: CommandQueue::new(CommandQueueType::Io, None),
         }
@@ -77,6 +84,14 @@ impl RenderDevice {
 }
 
 impl super::traits::Device<RenderBackend> for RenderDevice {
+    fn get_backend(&self) -> Backend {
+        Backend::Mock
+    }
+
+    fn get_device_id(&self) -> usize {
+        self.device_id
+    }
+
     fn create_command_queue(
         self: &Arc<Self>,
         ty: CommandQueueType,
@@ -85,7 +100,7 @@ impl super::traits::Device<RenderBackend> for RenderDevice {
         Arc::new(CommandQueue::new(ty, cb_count))
     }
 
-    fn create_buffer<T: Pod>(&self, desc: CreateBufferInfo<T>) -> Handle<Buffer> {
+    fn create_buffer<T: Pod>(&self, desc: &CreateBufferInfo<T>) -> Handle<Buffer> {
         let mut buffer = Buffer {
             buf: vec![0; desc.size],
             desc: BufferDesc {
@@ -101,9 +116,12 @@ impl super::traits::Device<RenderBackend> for RenderDevice {
                 let mut cmd = self.io_queue.create_command_buffer();
 
                 let dst_buffer = self.buffers.lock().push(buffer);
-                let src_buffer = self.create_buffer(CreateBufferInfo {
+                let src_buffer = self.create_buffer(&CreateBufferInfo {
                     usage: BufferUsage::Copy,
-                    ..desc
+                    size: desc.size,
+                    stride: desc.stride,
+                    mem_ty: desc.mem_ty,
+                    content: desc.content,
                 });
 
                 {
@@ -128,7 +146,11 @@ impl super::traits::Device<RenderBackend> for RenderDevice {
         handle
     }
 
-    fn create_image(&self, desc: CreateImageInfo) -> Handle<Image> {
+    fn destroy_buffer(&self, buffer: Handle<Buffer>) {
+        self.buffers.lock().remove(buffer);
+    }
+
+    fn create_image(&self, desc: &CreateImageInfo) -> Handle<Image> {
         let image = self.images.lock().push(Image {
             buf: Arc::new(Mutex::new(vec![0; 128])), // TODO: Calculate size
             desc: ImageDesc {
@@ -151,7 +173,7 @@ impl super::traits::Device<RenderBackend> for RenderDevice {
         if let Some(content) = desc.content {
             let mut cmd = self.io_queue.create_command_buffer();
 
-            let src_buffer = self.create_buffer(CreateBufferInfo {
+            let src_buffer = self.create_buffer(&CreateBufferInfo {
                 usage: BufferUsage::Copy,
                 size: (desc.width * desc.height * desc.array * 4) as usize, // TODO: Calculate size
                 stride: 0,
@@ -170,6 +192,10 @@ impl super::traits::Device<RenderBackend> for RenderDevice {
         };
 
         image
+    }
+
+    fn destroy_image(&self, image: Handle<Image>) {
+        self.images.lock().remove(image);
     }
 
     fn create_image_view(&self, image: Handle<Image>, desc: CreateImageViewInfo) -> Handle<Image> {
@@ -192,40 +218,51 @@ impl super::traits::Device<RenderBackend> for RenderDevice {
         })
     }
 
-    fn create_bind_group_layout(&mut self, desc: BindGroupLayoutDesc) -> Handle<BindGroupLayout> {
+    fn create_bind_group_layout(&self, desc: BindGroupLayoutDesc) -> Handle<BindGroupLayout> {
         self.bind_group_layouts.lock().push(BindGroupLayout {})
     }
 
+    fn destroy_bind_group_layout(&self, handle: Handle<BindGroupLayout>) {
+        self.bind_group_layouts.lock().remove(handle);
+    }
+
     fn create_pipeline_layout(
-        &mut self,
+        &self,
         desc: PipelineLayoutDesc<RenderBackend>,
     ) -> Handle<PipelineLayout> {
         self.pipeline_layouts.lock().push(PipelineLayout {})
     }
 
-    fn create_bind_group(&mut self, desc: BindGroupDesc<RenderBackend>) -> Handle<BindGroup> {
+    fn destroy_pipeline_layout(&self, handle: Handle<PipelineLayout>) {
+        self.pipeline_layouts.lock().remove(handle);
+    }
+
+    fn create_bind_group(&self, desc: BindGroupDesc<RenderBackend>) -> Handle<BindGroup> {
         self.bind_groups.lock().push(BindGroup {})
     }
 
-    fn create_temp_bind_group(
-        &mut self,
-        desc: BindGroupDesc<RenderBackend>,
-    ) -> Handle<TemporaryBindGroup> {
-        todo!()
+    fn destroy_bind_group(&self, handle: Handle<BindGroup>) {
+        self.bind_groups.lock().remove(handle);
     }
 
-    fn create_render_pipeline_state(
-        &mut self,
-        desc: &RenderPipelineDesc,
-    ) -> Handle<RenderPipeline> {
-        todo!()
+    fn create_temp_bind_group(&self, desc: BindGroupDesc<RenderBackend>) -> TemporaryBindGroup {
+        TemporaryBindGroup {}
     }
 
-    fn create_compute_pipeline_state(
-        &mut self,
-        desc: &ComputePipelineDesc,
-    ) -> Handle<ComputePipeline> {
-        todo!()
+    fn create_render_pipeline(&self, desc: &RenderPipelineDesc) -> Handle<RenderPipeline> {
+        self.render_pipeline.lock().push(RenderPipeline {})
+    }
+
+    fn destroy_render_pipeline(&self, handle: Handle<RenderPipeline>) {
+        self.render_pipeline.lock().remove(handle);
+    }
+
+    fn create_compute_pipeline(&self, desc: &ComputePipelineDesc) -> Handle<ComputePipeline> {
+        self.compute_pipeline.lock().push(ComputePipeline {})
+    }
+
+    fn destroy_compute_pipeline(&self, handle: Handle<ComputePipeline>) {
+        self.compute_pipeline.lock().remove(handle);
     }
 }
 

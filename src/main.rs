@@ -9,6 +9,7 @@ use graphics::{
     mock::RenderBackend,
     traits::{Api, Device},
     types::BufferUsage,
+    Backend, Renderer,
 };
 use tracing_subscriber::layer::SubscriberExt;
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
@@ -90,9 +91,11 @@ impl winit::application::ApplicationHandler for Application {
 }
 
 fn main() {
-    let backend = RenderBackend::new();
+    let renderer = Renderer::new(&[Backend::Mock]);
+
+    let backend = renderer.mock().expect("unreachable");
     let device = backend.get_device(0);
-    let buffer = device.create_buffer(graphics::types::CreateBufferInfo {
+    let buffer = device.create_buffer(&graphics::types::CreateBufferInfo {
         size: 4,
         stride: 0,
         usage: BufferUsage::Uniform,

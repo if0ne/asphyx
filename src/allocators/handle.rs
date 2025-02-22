@@ -66,3 +66,35 @@ impl<T, C: Cookie> std::fmt::Debug for Handle<T, C> {
             .finish()
     }
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct UntypedHandle {
+    id: usize,
+}
+
+impl UntypedHandle {
+    #[inline]
+    pub fn index(&self) -> usize {
+        self.id & ID_MASK
+    }
+
+    #[inline]
+    pub fn cookie(&self) -> usize {
+        (self.id & COOKIE_MASK) >> usize::BITS / 2
+    }
+}
+
+impl<T, C: Cookie> From<UntypedHandle> for Handle<T, C> {
+    fn from(value: UntypedHandle) -> Self {
+        Self {
+            id: value.id,
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<T, C: Cookie> From<Handle<T, C>> for UntypedHandle {
+    fn from(value: Handle<T, C>) -> Self {
+        Self { id: value.id }
+    }
+}
