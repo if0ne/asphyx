@@ -1,6 +1,7 @@
 pub mod handle;
 pub mod linear_index_allocator;
 pub mod pool_allocator;
+pub mod ring_buffer_allocator;
 pub mod ring_buffer_index_allocator;
 
 mod cookies;
@@ -8,6 +9,7 @@ mod cookies;
 pub use handle::*;
 pub use linear_index_allocator::*;
 pub use pool_allocator::*;
+pub use ring_buffer_allocator::*;
 pub use ring_buffer_index_allocator::*;
 
 #[cfg(target_pointer_width = "32")]
