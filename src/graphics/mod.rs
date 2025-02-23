@@ -6,6 +6,7 @@ use types::{CreateBufferInfo, CreateImageInfo};
 
 use crate::allocators::{Handle, Pool, UntypedHandle};
 
+pub mod dx12;
 pub mod mock;
 pub mod traits;
 pub mod types;
@@ -15,25 +16,36 @@ pub struct Renderer {
     images: Mutex<Pool<Image>>,
 
     mock_api: Option<Arc<mock::RenderBackend>>,
+    dx_api: Option<Arc<dx12::DxBackend>>,
 }
 
 impl Renderer {
-    pub fn new(backends: &[Backend]) -> Self {
+    pub fn new(backends: &[Backend], use_debug: bool) -> Self {
         let mock_api = backends
             .iter()
             .find(|b| **b == Backend::Mock)
             .map(|_| Arc::new(mock::RenderBackend::new()));
+
+        let dx_api = backends
+            .iter()
+            .find(|b| **b == Backend::Dx12)
+            .map(|_| Arc::new(dx12::DxBackend::new(use_debug)));
 
         Self {
             buffers: Mutex::new(Pool::new(None)),
             images: Mutex::new(Pool::new(None)),
 
             mock_api,
+            dx_api,
         }
     }
 
     pub fn mock(&self) -> Option<Arc<mock::RenderBackend>> {
         self.mock_api.clone()
+    }
+
+    pub fn dx12(&self) -> Option<Arc<dx12::DxBackend>> {
+        self.dx_api.clone()
     }
 
     pub fn create_buffer(

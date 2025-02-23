@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 bitflags = "2.8.0"
 bytemuck = "1.21.0"
-oxidx = { git = "https://github.com/if0ne/oxidx", version = "0.6.0" }
+oxidx = { git = "https://github.com/if0ne/oxidx" }
 parking_lot = "0.12.3"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"

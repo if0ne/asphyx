@@ -6,7 +6,6 @@ mod graphics;
 use std::num::NonZero;
 
 use graphics::{
-    mock::RenderBackend,
     traits::{Api, Device},
     types::BufferUsage,
     Backend, Renderer,
@@ -91,9 +90,15 @@ impl winit::application::ApplicationHandler for Application {
 }
 
 fn main() {
-    let renderer = Renderer::new(&[Backend::Mock]);
+    let console_log = tracing_subscriber::fmt::Layer::new()
+        .with_ansi(true)
+        .with_writer(std::io::stdout);
+    let subscriber = tracing_subscriber::registry().with(console_log);
+    let _ = tracing::subscriber::set_global_default(subscriber);
 
-    let backend = renderer.mock().expect("unreachable");
+    let renderer = Renderer::new(&[Backend::Dx12], true);
+
+    let backend = renderer.dx12().expect("unreachable");
     let device = backend.get_device(0);
     let buffer = device.create_buffer(&graphics::types::CreateBufferInfo {
         size: 4,
@@ -102,14 +107,6 @@ fn main() {
         mem_ty: None,
         content: Some(&[42]),
     });
-
-    let console_log = tracing_subscriber::fmt::Layer::new()
-        .with_ansi(true)
-        .with_writer(std::io::stdout);
-
-    let subscriber = tracing_subscriber::registry().with(console_log);
-
-    let _ = tracing::subscriber::set_global_default(subscriber);
 
     let event_loop = winit::event_loop::EventLoop::new().expect("failed to create event loop");
 
