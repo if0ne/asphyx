@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::{borrow::Cow, ops::Range};
 
 use bytemuck::Pod;
 use oxidx::dx;
@@ -59,6 +59,14 @@ bitflags::bitflags! {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BufferState {
+    Unknown,
+    Generic,
+    CopyDst,
+    CopySrc,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MemoryType {
     Upload,
     Readback,
@@ -72,6 +80,7 @@ pub struct ComputePipelineDesc {}
 
 #[derive(Clone, Debug)]
 pub struct CreateBufferInfo<'a, T: Pod = u8> {
+    pub name: Option<Cow<'static, str>>,
     pub size: usize,
     pub stride: usize,
     pub usage: BufferUsage,
@@ -90,6 +99,7 @@ pub struct BufferDesc {
 impl<'a, T: Pod> Default for CreateBufferInfo<'a, T> {
     fn default() -> Self {
         Self {
+            name: None,
             size: 0,
             stride: 0,
             usage: BufferUsage::empty(),

@@ -101,9 +101,10 @@ fn main() {
     let backend = renderer.dx12().expect("unreachable");
     let device = backend.get_device(0);
     let buffer = device.create_buffer(&graphics::types::CreateBufferInfo {
-        size: 4,
+        name: Some(std::borrow::Cow::Borrowed("Test")),
+        size: 1,
         stride: 0,
-        usage: BufferUsage::Uniform,
+        usage: BufferUsage::Vertex,
         mem_ty: None,
         content: Some(&[42]),
     });

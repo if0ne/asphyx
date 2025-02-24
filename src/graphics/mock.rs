@@ -117,6 +117,7 @@ impl super::traits::Device<RenderBackend> for RenderDevice {
 
                 let dst_buffer = self.buffers.lock().push(buffer);
                 let src_buffer = self.create_buffer(&CreateBufferInfo {
+                    name: None,
                     usage: BufferUsage::Copy,
                     size: desc.size,
                     stride: desc.stride,
@@ -174,6 +175,7 @@ impl super::traits::Device<RenderBackend> for RenderDevice {
             let mut cmd = self.io_queue.create_command_buffer();
 
             let src_buffer = self.create_buffer(&CreateBufferInfo {
+                name: None,
                 usage: BufferUsage::Copy,
                 size: (desc.width * desc.height * desc.array * 4) as usize, // TODO: Calculate size
                 stride: 0,
