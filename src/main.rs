@@ -6,9 +6,8 @@ mod graphics;
 use std::num::NonZero;
 
 use graphics::{
-    traits::{Api, Device},
-    types::BufferUsage,
-    Backend, Renderer,
+    types::{DebugFlags, RenderBackend, RenderBackendSettings},
+    RenderSystem,
 };
 use tracing_subscriber::layer::SubscriberExt;
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
@@ -96,18 +95,10 @@ fn main() {
     let subscriber = tracing_subscriber::registry().with(console_log);
     let _ = tracing::subscriber::set_global_default(subscriber);
 
-    let renderer = Renderer::new(&[Backend::Dx12], true);
-
-    let backend = renderer.dx12().expect("unreachable");
-    let device = backend.get_device(0);
-    let buffer = device.create_buffer(&graphics::types::CreateBufferInfo {
-        name: Some(std::borrow::Cow::Borrowed("Test")),
-        size: 1,
-        stride: 0,
-        usage: BufferUsage::Vertex,
-        mem_ty: None,
-        content: Some(&[42]),
-    });
+    let renderer = RenderSystem::new(&[RenderBackendSettings {
+        api: RenderBackend::Dx12,
+        debug: DebugFlags::CpuValidation | DebugFlags::GpuValidation,
+    }]);
 
     let event_loop = winit::event_loop::EventLoop::new().expect("failed to create event loop");
 

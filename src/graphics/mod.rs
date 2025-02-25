@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use parking_lot::Mutex;
-use traits::{Api, Device, DynDevice};
-use types::{CreateBufferInfo, CreateImageInfo};
+use traits::{Api, Device, DynApi, DynDevice};
+use types::{CreateBufferInfo, CreateImageInfo, RenderBackend, RenderBackendSettings};
 
 use crate::allocators::{Handle, Pool, UntypedHandle};
 
@@ -11,58 +11,43 @@ pub mod mock;
 pub mod traits;
 pub mod types;
 
-pub struct Renderer {
-    buffers: Mutex<Pool<Buffer>>,
-    images: Mutex<Pool<Image>>,
+pub type RenderHandle = UntypedHandle;
 
-    mock_api: Option<Arc<mock::RenderBackend>>,
-    dx_api: Option<Arc<dx12::DxBackend>>,
+pub struct RenderSystem {
+    buffers: Mutex<Pool<()>>,
+    images: Mutex<Pool<()>>,
+
+    backends: Mutex<Vec<Arc<dyn DynApi>>>,
 }
 
-impl Renderer {
-    pub fn new(backends: &[Backend], use_debug: bool) -> Self {
-        let mock_api = backends
+impl RenderSystem {
+    pub fn new(backends: &[RenderBackendSettings]) -> Self {
+        let backends = backends
             .iter()
-            .find(|b| **b == Backend::Mock)
-            .map(|_| Arc::new(mock::RenderBackend::new()));
+            .map(|b| {
+                let b: Arc<dyn DynApi> = match b.api {
+                    RenderBackend::Dx12 => todo!(), //Arc::new(DxBackend::new(b.debug)),
+                    RenderBackend::Vulkan => todo!(),
+                    RenderBackend::Mock => todo!(),
+                };
 
-        let dx_api = backends
-            .iter()
-            .find(|b| **b == Backend::Dx12)
-            .map(|_| Arc::new(dx12::DxBackend::new(use_debug)));
+                b
+            })
+            .collect();
 
         Self {
             buffers: Mutex::new(Pool::new(None)),
             images: Mutex::new(Pool::new(None)),
-
-            mock_api,
-            dx_api,
+            backends: Mutex::new(backends),
         }
-    }
-
-    pub fn mock(&self) -> Option<Arc<mock::RenderBackend>> {
-        self.mock_api.clone()
-    }
-
-    pub fn dx12(&self) -> Option<Arc<dx12::DxBackend>> {
-        self.dx_api.clone()
     }
 
     pub fn create_buffer(
         &self,
         desc: &CreateBufferInfo,
         devices: &[&dyn DynDevice],
-    ) -> Handle<Buffer> {
-        let handles = devices
-            .iter()
-            .map(|d| SharedEntry {
-                handle: d.create_buffer(desc),
-                backend: d.get_backend(),
-                device_id: d.get_device_id(),
-            })
-            .collect::<Vec<_>>();
-
-        self.buffers.lock().push(Buffer { buffers: handles })
+    ) -> RenderHandle {
+        todo!()
     }
 
     pub fn get_buffer_handle<A: Api>(
@@ -70,18 +55,7 @@ impl Renderer {
         handle: Handle<Buffer>,
         device: &impl Device<A>,
     ) -> Option<Handle<A::Buffer>> {
-        self.buffers
-            .lock()
-            .get(handle)
-            .map(|b| {
-                b.buffers
-                    .iter()
-                    .find(|e| {
-                        e.backend == device.get_backend() && e.device_id == device.get_device_id()
-                    })
-                    .map(|e| e.handle.into())
-            })
-            .flatten()
+        todo!()
     }
 
     pub fn create_image(
@@ -89,16 +63,7 @@ impl Renderer {
         desc: &CreateImageInfo,
         devices: &[&dyn DynDevice],
     ) -> Handle<Image> {
-        let handles = devices
-            .iter()
-            .map(|d| SharedEntry {
-                handle: d.create_image(desc),
-                backend: d.get_backend(),
-                device_id: d.get_device_id(),
-            })
-            .collect::<Vec<_>>();
-
-        self.images.lock().push(Image { images: handles })
+        todo!()
     }
 
     pub fn get_image_handle<A: Api>(
@@ -106,18 +71,7 @@ impl Renderer {
         handle: Handle<Image>,
         device: &impl Device<A>,
     ) -> Option<Handle<A::Image>> {
-        self.images
-            .lock()
-            .get(handle)
-            .map(|b| {
-                b.images
-                    .iter()
-                    .find(|e| {
-                        e.backend == device.get_backend() && e.device_id == device.get_device_id()
-                    })
-                    .map(|e| e.handle.into())
-            })
-            .flatten()
+        todo!()
     }
 }
 
@@ -130,14 +84,7 @@ pub struct Buffer {
 }
 
 struct SharedEntry {
-    backend: Backend,
+    backend: RenderBackend,
     device_id: usize,
     handle: UntypedHandle,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Backend {
-    Dx12,
-    Vulkan,
-    Mock,
 }

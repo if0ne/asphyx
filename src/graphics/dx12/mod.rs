@@ -1,5 +1,5 @@
 mod conv;
-
+/*
 use std::{
     collections::VecDeque,
     ffi::CString,
@@ -29,8 +29,8 @@ pub struct DxBackend {
 }
 
 impl DxBackend {
-    pub fn new(use_debug: bool) -> Self {
-        let flags = if use_debug {
+    pub fn new(debug_flags: types::DebugFlags) -> Self {
+        let flags = if !debug_flags.is_empty() {
             dx::FactoryCreationFlags::Debug
         } else {
             dx::FactoryCreationFlags::empty()
@@ -38,7 +38,7 @@ impl DxBackend {
 
         let factory = dx::create_factory4(flags).expect("failed to create DXGI factory");
 
-        let debug = if use_debug {
+        let debug = if !debug_flags.is_empty() {
             let debug: dx::Debug1 = dx::create_debug()
                 .expect("failed to create debug")
                 .try_into()
@@ -165,6 +165,8 @@ impl traits::Api for DxBackend {
     }
 }
 
+impl traits::DynApi for DxBackend {}
+
 #[derive(Debug)]
 pub struct DxDevice {
     id: usize,
@@ -225,8 +227,8 @@ impl DxDevice {
 }
 
 impl traits::Device<DxBackend> for DxDevice {
-    fn get_backend(&self) -> super::Backend {
-        super::Backend::Dx12
+    fn get_backend(&self) -> super::types::RenderBackend {
+        super::types::RenderBackend::Dx12
     }
 
     fn get_device_id(&self) -> usize {
@@ -363,7 +365,7 @@ impl traits::Device<DxBackend> for DxDevice {
 }
 
 impl traits::DynDevice for DxDevice {
-    fn get_backend(&self) -> super::Backend {
+    fn get_backend(&self) -> super::types::RenderBackend {
         <Self as traits::Device<DxBackend>>::get_backend(&self)
     }
 
@@ -779,3 +781,4 @@ pub struct DxRenderPipeline {}
 
 #[derive(Debug)]
 pub struct DxComputePipeline {}
+*/

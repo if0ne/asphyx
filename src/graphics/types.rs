@@ -8,6 +8,30 @@ use crate::allocators::Handle;
 use super::traits::Api;
 
 pub type SyncPoint = u64;
+pub type DeviceId = usize;
+
+bitflags::bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub struct DebugFlags: u32 {
+        const CpuValidation = 0x1;
+        const GpuValidation = 0x2;
+        const RenderDoc = 0x4;
+        const Pix = 0x8;
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RenderBackend {
+    Dx12,
+    Vulkan,
+    Mock,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RenderBackendSettings {
+    pub api: RenderBackend,
+    pub debug: DebugFlags,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CommandQueueType {

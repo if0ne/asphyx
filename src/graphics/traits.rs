@@ -4,7 +4,7 @@ use bytemuck::Pod;
 
 use crate::allocators::{Handle, UntypedHandle};
 
-use super::{types::*, Backend};
+use super::types::*;
 
 pub trait Api: Sized {
     type Device: Device<Self>;
@@ -25,7 +25,7 @@ pub trait Api: Sized {
 }
 
 pub trait Device<A: Api> {
-    fn get_backend(&self) -> Backend;
+    fn get_backend(&self) -> RenderBackend;
     fn get_device_id(&self) -> usize;
 
     fn create_command_queue(
@@ -71,10 +71,12 @@ pub trait Device<A: Api> {
     fn destroy_compute_pipeline(&self, handle: Handle<A::ComputePipeline>);
 }
 
+pub trait DynApi {}
+
 pub trait DynDevice {
     fn create_buffer(&self, desc: &CreateBufferInfo) -> UntypedHandle;
     fn create_image(&self, desc: &CreateImageInfo) -> UntypedHandle;
-    fn get_backend(&self) -> Backend;
+    fn get_backend(&self) -> RenderBackend;
     fn get_device_id(&self) -> usize;
 }
 
