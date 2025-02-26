@@ -1,3 +1,4 @@
+#![allow(internal_features)]
 #![feature(cold_path)]
 #![feature(nonzero_internals)]
 
