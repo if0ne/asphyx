@@ -1,14 +1,11 @@
 #![feature(cold_path)]
+#![feature(nonzero_internals)]
 
-mod allocators;
 mod graphics;
+mod utils;
 
 use std::num::NonZero;
 
-use graphics::{
-    types::{DebugFlags, RenderBackend, RenderBackendSettings},
-    RenderSystem,
-};
 use tracing_subscriber::layer::SubscriberExt;
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
@@ -94,11 +91,6 @@ fn main() {
         .with_writer(std::io::stdout);
     let subscriber = tracing_subscriber::registry().with(console_log);
     let _ = tracing::subscriber::set_global_default(subscriber);
-
-    let renderer = RenderSystem::new(&[RenderBackendSettings {
-        api: RenderBackend::Dx12,
-        debug: DebugFlags::CpuValidation | DebugFlags::GpuValidation,
-    }]);
 
     let event_loop = winit::event_loop::EventLoop::new().expect("failed to create event loop");
 
