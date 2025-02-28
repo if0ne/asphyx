@@ -2,8 +2,8 @@
 #![feature(cold_path)]
 #![feature(nonzero_internals)]
 
-mod graphics;
-mod utils;
+pub mod graphics;
+pub mod utils;
 
 use std::num::NonZero;
 

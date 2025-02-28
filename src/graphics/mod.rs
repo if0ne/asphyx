@@ -1,3 +1,4 @@
+pub mod commands;
 pub mod core;
 
 #[cfg(target_os = "windows")]
