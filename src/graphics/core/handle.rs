@@ -1,4 +1,4 @@
-use std::{hash::Hash, marker::PhantomData};
+use std::{hash::Hash, marker::PhantomData, mem::MaybeUninit};
 
 use static_assertions::const_assert_eq;
 
@@ -105,6 +105,42 @@ impl<T> RenderHandleAllocator<T> {
         if let Some(gen) = self.gens.get_mut(handle.index as usize) {
             *gen += 1;
             self.free_list.push(handle.index);
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct SparseArray<T> {
+    sparse: Vec<Option<RenderHandle<T>>>,
+    dense: Vec<MaybeUninit<T>>,
+}
+
+impl<T> SparseArray<T> {
+    pub fn contains(&self, handle: RenderHandle<T>) -> bool {
+        self.sparse
+            .get(handle.index as usize)
+            .is_some_and(|h| h.is_some_and(|h| h.gen == handle.gen))
+    }
+
+    pub fn set(&mut self, handle: RenderHandle<T>, value: T) {
+        if self.sparse.len() < handle.index as usize {
+            self.sparse.resize((handle.index + 1) as usize, None);
+        }
+
+        if let Some(ref mut h) = self.sparse[handle.index as usize] {
+            unsafe {
+                self.dense[h.index as usize].assume_init_drop();
+            }
+            h.gen = handle.gen;
+            self.dense[h.index as usize] = MaybeUninit::new(value);
+        } else {
+            let pos = self.dense.len();
+            self.dense.push(MaybeUninit::new(value));
+            self.sparse[handle.index as usize] = Some(RenderHandle {
+                index: pos as u32,
+                gen: handle.gen,
+                _marker: PhantomData,
+            });
         }
     }
 }
