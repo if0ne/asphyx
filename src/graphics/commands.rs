@@ -7,13 +7,13 @@ use super::dx12::commands::{
 
 #[enum_dispatch]
 pub trait DynCommandBuffer {
-    fn render_encoder(&mut self) -> RenderEncoder<'_>;
-    fn compute_encoder(&mut self) -> ComputeEncoder<'_>;
-    fn transfer_encoder(&mut self) -> TransferEncoder<'_>;
+    fn render_encoder(&mut self) -> RenderEncoderEnum<'_>;
+    fn compute_encoder(&mut self) -> ComputeEncoderEnum<'_>;
+    fn transfer_encoder(&mut self) -> TransferEncoderEnum<'_>;
 }
 
 #[enum_dispatch(DynCommandBuffer)]
-pub enum CommandBuffer {
+pub enum CommandBufferEnum {
     #[cfg(target_os = "windows")]
     DxCommandBuffer,
 }
@@ -22,7 +22,7 @@ pub enum CommandBuffer {
 pub trait DynRenderEncoder<'a> {}
 
 #[enum_dispatch(DynRenderEncoder)]
-pub enum RenderEncoder<'a> {
+pub enum RenderEncoderEnum<'a> {
     #[cfg(target_os = "windows")]
     DxRenderEncoder(DxRenderEncoder<'a>),
 }
@@ -31,7 +31,7 @@ pub enum RenderEncoder<'a> {
 pub trait DynComputeEncoder<'a> {}
 
 #[enum_dispatch(DynComputeEncoder)]
-pub enum ComputeEncoder<'a> {
+pub enum ComputeEncoderEnum<'a> {
     #[cfg(target_os = "windows")]
     DxComputeEncoder(DxComputeEncoder<'a>),
 }
@@ -40,7 +40,7 @@ pub enum ComputeEncoder<'a> {
 pub trait DynTransferEncoder<'a> {}
 
 #[enum_dispatch(DynTransferEncoder)]
-pub enum TransferEncoder<'a> {
+pub enum TransferEncoderEnum<'a> {
     #[cfg(target_os = "windows")]
     DxTransferEncoder(DxTransferEncoder<'a>),
 }

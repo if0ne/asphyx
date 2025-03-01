@@ -1,22 +1,22 @@
 use std::marker::PhantomData;
 
 use crate::graphics::commands::{
-    ComputeEncoder, DynCommandBuffer, DynComputeEncoder, DynRenderEncoder, DynTransferEncoder,
-    RenderEncoder, TransferEncoder,
+    ComputeEncoderEnum, DynCommandBuffer, DynComputeEncoder, DynRenderEncoder, DynTransferEncoder,
+    RenderEncoderEnum, TransferEncoderEnum,
 };
 
 pub struct DxCommandBuffer {}
 
 impl DynCommandBuffer for DxCommandBuffer {
-    fn render_encoder(&mut self) -> RenderEncoder<'_> {
+    fn render_encoder(&mut self) -> RenderEncoderEnum<'_> {
         todo!()
     }
 
-    fn compute_encoder(&mut self) -> ComputeEncoder<'_> {
+    fn compute_encoder(&mut self) -> ComputeEncoderEnum<'_> {
         todo!()
     }
 
-    fn transfer_encoder(&mut self) -> TransferEncoder<'_> {
+    fn transfer_encoder(&mut self) -> TransferEncoderEnum<'_> {
         todo!()
     }
 }

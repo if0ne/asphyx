@@ -1,5 +1,3 @@
-use super::handle::RenderHandle;
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Buffer;
 
@@ -8,28 +6,6 @@ pub struct Texture;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Sampler;
-
-pub trait DynResourceDevice {
-    fn bind_buffer(&self, handle: RenderHandle<Buffer>, desc: CreateBufferDesc);
-    fn unbind_buffer(&self, handle: RenderHandle<Buffer>);
-
-    fn open_buffer_handle(&self, handle: RenderHandle<Buffer>, other: &Self);
-
-    fn bind_texture(&self, handle: RenderHandle<Texture>, desc: CreateTextureDesc);
-    fn unbind_texture(&self, handle: RenderHandle<Texture>);
-
-    fn bind_texture_view(
-        &self,
-        handle: RenderHandle<Texture>,
-        texture: RenderHandle<Texture>,
-        desc: CreateTextureViewDesc,
-    );
-
-    fn open_texture_handle(&self, handle: RenderHandle<Texture>, other: &Self);
-
-    fn bind_sampler(&self, handle: RenderHandle<Sampler>, desc: CreateSamplerDesc);
-    fn unbind_sampler(&self, handle: RenderHandle<Sampler>);
-}
 
 pub trait ResourceDevice {
     type Buffer;
