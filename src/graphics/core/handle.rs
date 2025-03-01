@@ -143,4 +143,44 @@ impl<T> SparseArray<T> {
             });
         }
     }
+
+    pub fn get(&self, handle: RenderHandle<T>) -> Option<&T> {
+        self.sparse.get(handle.index as usize).and_then(|h| {
+            if let Some(h) = h {
+                if h.gen == handle.gen {
+                    unsafe { Some(self.dense[h.index as usize].assume_init_ref()) }
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn get_mut(&mut self, handle: RenderHandle<T>) -> Option<&mut T> {
+        self.sparse.get(handle.index as usize).and_then(|h| {
+            if let Some(h) = h {
+                if h.gen == handle.gen {
+                    unsafe { Some(self.dense[h.index as usize].assume_init_mut()) }
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+    }
+}
+
+impl<T> Drop for SparseArray<T> {
+    fn drop(&mut self) {
+        for handle in self.sparse.iter_mut() {
+            if let Some(handle) = handle.take() {
+                unsafe {
+                    self.dense[handle.index as usize].assume_init_drop();
+                }
+            }
+        }
+    }
 }
