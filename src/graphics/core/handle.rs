@@ -123,7 +123,7 @@ impl<T> SparseArray<T> {
     }
 
     pub fn set(&mut self, handle: RenderHandle<T>, value: T) {
-        if self.sparse.len() < handle.index as usize {
+        if self.sparse.len() <= handle.index as usize {
             self.sparse.resize((handle.index + 1) as usize, None);
         }
 
