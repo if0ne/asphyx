@@ -110,20 +110,30 @@ impl<T> RenderHandleAllocator<T> {
 }
 
 #[derive(Debug)]
-pub struct SparseArray<T> {
-    sparse: Vec<Option<RenderHandle<T>>>,
-    dense: Vec<MaybeUninit<T>>,
+pub struct SparseArray<U, W> {
+    sparse: Vec<Option<RenderHandle<W>>>,
+    dense: Vec<MaybeUninit<W>>,
     dense_to_sparse: Vec<usize>,
+    _marker: PhantomData<U>,
 }
 
-impl<T> SparseArray<T> {
-    pub fn contains(&self, handle: RenderHandle<T>) -> bool {
+impl<U, W> SparseArray<U, W> {
+    pub fn new(capacity: usize) -> Self {
+        Self {
+            sparse: vec![None; capacity],
+            dense: Vec::new(),
+            dense_to_sparse: Vec::new(),
+            _marker: PhantomData,
+        }
+    }
+
+    pub fn contains(&self, handle: RenderHandle<U>) -> bool {
         self.sparse
             .get(handle.index as usize)
             .is_some_and(|h| h.is_some_and(|h| h.gen == handle.gen))
     }
 
-    pub fn set(&mut self, handle: RenderHandle<T>, value: T) {
+    pub fn set(&mut self, handle: RenderHandle<U>, value: W) {
         if self.sparse.len() <= handle.index as usize {
             self.sparse.resize((handle.index + 1) as usize, None);
         }
@@ -146,7 +156,7 @@ impl<T> SparseArray<T> {
         }
     }
 
-    pub fn get(&self, handle: RenderHandle<T>) -> Option<&T> {
+    pub fn get(&self, handle: RenderHandle<U>) -> Option<&W> {
         self.sparse.get(handle.index as usize).and_then(|h| {
             if let Some(h) = h {
                 if h.gen == handle.gen {
@@ -160,7 +170,7 @@ impl<T> SparseArray<T> {
         })
     }
 
-    pub fn get_mut(&mut self, handle: RenderHandle<T>) -> Option<&mut T> {
+    pub fn get_mut(&mut self, handle: RenderHandle<U>) -> Option<&mut W> {
         self.sparse.get(handle.index as usize).and_then(|h| {
             if let Some(h) = h {
                 if h.gen == handle.gen {
@@ -174,7 +184,7 @@ impl<T> SparseArray<T> {
         })
     }
 
-    pub fn remove(&mut self, handle: RenderHandle<T>) {
+    pub fn remove(&mut self, handle: RenderHandle<U>) {
         let Some(Some(sparse_h)) = self.sparse.get(handle.index as usize) else {
             return;
         };
@@ -193,15 +203,17 @@ impl<T> SparseArray<T> {
         self.dense_to_sparse.swap_remove(dense_pos);
         self.sparse[handle.index as usize] = None;
 
-        let Some(Some(handle)) = self.sparse.get_mut(self.dense_to_sparse[dense_pos]) else {
-            return;
-        };
+        if self.dense_to_sparse.len() > 0 {
+            let Some(Some(handle)) = self.sparse.get_mut(self.dense_to_sparse[dense_pos]) else {
+                return;
+            };
 
-        handle.index = dense_pos as u32;
+            handle.index = dense_pos as u32;
+        }
     }
 }
 
-impl<T> Drop for SparseArray<T> {
+impl<U, W> Drop for SparseArray<U, W> {
     fn drop(&mut self) {
         for handle in self.sparse.iter_mut() {
             if let Some(handle) = handle.take() {

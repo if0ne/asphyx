@@ -1,17 +1,16 @@
-use crate::graphics::core::resource::ResourceDevice;
+use crate::graphics::core::resource::{
+    CreateBufferDesc, CreateSamplerDesc, CreateTextureDesc, CreateTextureViewDesc, ResourceDevice,
+};
 
 use super::context::DxRenderContext;
 
 impl ResourceDevice for DxRenderContext {
-    type Buffer = ();
+    type Buffer = DxBuffer;
     type Texture = ();
     type Sampler = ();
 
-    fn create_buffer(
-        &self,
-        desc: &crate::graphics::core::resource::CreateBufferDesc,
-    ) -> Self::Buffer {
-        todo!()
+    fn create_buffer(&self, desc: &CreateBufferDesc) -> Self::Buffer {
+        DxBuffer {}
     }
 
     fn destroy_buffer(&self, buffer: Self::Buffer) {
@@ -22,10 +21,7 @@ impl ResourceDevice for DxRenderContext {
         todo!()
     }
 
-    fn create_texture(
-        &self,
-        desc: &crate::graphics::core::resource::CreateTextureDesc,
-    ) -> Self::Texture {
+    fn create_texture(&self, desc: &CreateTextureDesc) -> Self::Texture {
         todo!()
     }
 
@@ -36,7 +32,7 @@ impl ResourceDevice for DxRenderContext {
     fn create_texture_view(
         &self,
         texture: &Self::Texture,
-        desc: &crate::graphics::core::resource::CreateTextureViewDesc,
+        desc: &CreateTextureViewDesc,
     ) -> Self::Texture {
         todo!()
     }
@@ -45,10 +41,7 @@ impl ResourceDevice for DxRenderContext {
         todo!()
     }
 
-    fn create_sampler(
-        &self,
-        desc: &crate::graphics::core::resource::CreateSamplerDesc,
-    ) -> Self::Sampler {
+    fn create_sampler(&self, desc: &CreateSamplerDesc) -> Self::Sampler {
         todo!()
     }
 
@@ -56,3 +49,6 @@ impl ResourceDevice for DxRenderContext {
         todo!()
     }
 }
+
+#[derive(Debug)]
+pub struct DxBuffer {}

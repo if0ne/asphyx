@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use oxidx::dx;
+use parking_lot::Mutex;
 use tracing::info;
 
 use crate::graphics::{
@@ -9,16 +10,16 @@ use crate::graphics::{
     core::{
         backend::RenderDeviceInfo,
         commands::{CommandBufferType, CommandDevice, SyncPoint},
-        handle::RenderHandle,
+        handle::{RenderHandle, SparseArray},
         resource::{
             Buffer, CreateBufferDesc, CreateSamplerDesc, CreateTextureDesc, CreateTextureViewDesc,
-            Sampler, Texture,
+            ResourceDevice, Sampler, Texture,
         },
         shader::{ComputePipeline, RenderPipeline},
     },
 };
 
-use super::inner::commands::DxCommandQueue;
+use super::{inner::commands::DxCommandQueue, resources::DxBuffer};
 
 #[derive(Debug)]
 pub struct DxRenderContext {
@@ -30,6 +31,8 @@ pub struct DxRenderContext {
     pub(super) transfer_queue: DxCommandQueue,
 
     pub(super) desc: RenderDeviceInfo,
+
+    pub(super) buffers: Mutex<SparseArray<Buffer, DxBuffer>>,
 }
 
 impl DxRenderContext {
@@ -59,17 +62,19 @@ impl DxRenderContext {
             compute_queue,
             transfer_queue,
             desc,
+            buffers: Mutex::new(SparseArray::new(128)),
         }
     }
 }
 
 impl RenderContext for DxRenderContext {
     fn bind_buffer(&self, handle: RenderHandle<Buffer>, desc: CreateBufferDesc) {
-        todo!()
+        let buffer = self.create_buffer(&desc);
+        self.buffers.lock().set(handle, buffer);
     }
 
     fn unbind_buffer(&self, handle: RenderHandle<Buffer>) {
-        todo!()
+        self.buffers.lock().remove(handle);
     }
 
     fn open_buffer_handle(&self, handle: RenderHandle<Buffer>, other: &Self) {

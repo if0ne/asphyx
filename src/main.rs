@@ -8,6 +8,7 @@ pub mod utils;
 use std::{num::NonZero, sync::Arc};
 
 use graphics::{
+    context::RenderContext,
     core::{
         backend::{Api, RenderDeviceGroup},
         commands::{CommandBufferType, CommandDevice},
@@ -112,12 +113,19 @@ fn main() {
 
     let devices = RenderDeviceGroup::new(gpu1, vec![gpu2]);
 
-    devices.call(|d| {
-        let cmd_buffer = d.create_command_buffer(CommandBufferType::Graphics);
+    let handle = render_system.create_buffer_handle();
+    let handle1 = render_system.create_buffer_handle();
 
-        d.push_cmd_buffer(cmd_buffer);
-        dbg!(d.commit(CommandBufferType::Graphics));
+    devices.call(|d| {
+        d.bind_buffer(handle, graphics::core::resource::CreateBufferDesc {});
+        d.bind_buffer(handle1, graphics::core::resource::CreateBufferDesc {});
+
+        d.unbind_buffer(handle);
+        d.unbind_buffer(handle1);
     });
+
+    render_system.free_buffer_handle(handle);
+    render_system.free_buffer_handle(handle1);
 
     /*let event_loop = winit::event_loop::EventLoop::new().expect("failed to create event loop");
 
