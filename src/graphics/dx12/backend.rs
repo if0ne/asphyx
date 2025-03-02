@@ -189,7 +189,10 @@ impl Api for DxBackend {
     }
 
     fn create_device(&self, index: RenderDeviceId) -> Self::Device {
-        todo!()
+        DxRenderContext::new(
+            self.adapters[index].clone(),
+            self.adapter_infos[index].clone(),
+        )
     }
 }
 

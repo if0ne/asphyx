@@ -1,11 +1,13 @@
 use std::sync::Arc;
 
 use oxidx::dx;
+use tracing::info;
 
 use crate::graphics::{
     commands::CommandBufferEnum,
     context::RenderContext,
     core::{
+        backend::RenderDeviceInfo,
         commands::{CommandBufferType, CommandDevice, SyncPoint},
         handle::RenderHandle,
         resource::{
@@ -21,10 +23,44 @@ use super::inner::commands::DxCommandQueue;
 #[derive(Debug)]
 pub struct DxRenderContext {
     pub(super) gpu: dx::Device,
+    adapter: dx::Adapter3,
 
     pub(super) gfx_queue: DxCommandQueue,
     pub(super) compute_queue: DxCommandQueue,
     pub(super) transfer_queue: DxCommandQueue,
+
+    pub(super) desc: RenderDeviceInfo,
+}
+
+impl DxRenderContext {
+    pub(super) fn new(adapter: dx::Adapter3, desc: RenderDeviceInfo) -> Self {
+        info!(
+            "Creating device with adapter {} and id {}",
+            desc.name, desc.id
+        );
+
+        let device = dx::create_device(Some(&adapter), dx::FeatureLevel::Level11)
+            .expect("failed to create device");
+
+        if desc.is_cross_adapter_texture_supported {
+            info!("Cross Adapter Row Major Texture is supported");
+        } else {
+            info!("Cross Adapter Row Major Texture is NOT supported");
+        }
+
+        let gfx_queue = DxCommandQueue::new(&device, CommandBufferType::Graphics, None);
+        let compute_queue = DxCommandQueue::new(&device, CommandBufferType::Compute, None);
+        let transfer_queue = DxCommandQueue::new(&device, CommandBufferType::Transfer, None);
+
+        Self {
+            gpu: device,
+            adapter,
+            gfx_queue,
+            compute_queue,
+            transfer_queue,
+            desc,
+        }
+    }
 }
 
 impl RenderContext for DxRenderContext {

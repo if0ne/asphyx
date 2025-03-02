@@ -29,7 +29,7 @@ pub(crate) struct DxCommandQueue {
 }
 
 impl DxCommandQueue {
-    fn new(device: &dx::Device, ty: CommandBufferType, capacity: Option<usize>) -> Self {
+    pub(crate) fn new(device: &dx::Device, ty: CommandBufferType, capacity: Option<usize>) -> Self {
         let queue = device
             .create_command_queue(&dx::CommandQueueDesc::new(ty.into()))
             .expect("failed to create command queue");

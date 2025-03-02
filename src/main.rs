@@ -5,9 +5,15 @@
 pub mod graphics;
 pub mod utils;
 
-use std::num::NonZero;
+use std::{num::NonZero, sync::Arc};
 
-use graphics::{DebugFlags, RenderBackend, RenderBackendSettings, RenderSystem};
+use graphics::{
+    core::{
+        backend::{Api, RenderDeviceGroup},
+        commands::{CommandBufferType, CommandDevice},
+    },
+    DebugFlags, RenderBackend, RenderBackendSettings, RenderSystem,
+};
 use tracing_subscriber::layer::SubscriberExt;
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
@@ -100,6 +106,18 @@ fn main() {
     }]);
 
     let dx_api = render_system.dx_api().unwrap();
+
+    let gpu1 = Arc::new(dx_api.create_device(0));
+    let gpu2 = Arc::new(dx_api.create_device(1));
+
+    let devices = RenderDeviceGroup::new(gpu1, vec![gpu2]);
+
+    devices.call(|d| {
+        let cmd_buffer = d.create_command_buffer(CommandBufferType::Graphics);
+
+        d.push_cmd_buffer(cmd_buffer);
+        dbg!(d.commit(CommandBufferType::Graphics));
+    });
 
     /*let event_loop = winit::event_loop::EventLoop::new().expect("failed to create event loop");
 
