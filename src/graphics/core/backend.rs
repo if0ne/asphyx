@@ -4,8 +4,20 @@ use super::{commands::CommandDevice, resource::ResourceDevice};
 
 pub type RenderDeviceId = usize;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DeviceType {
+    Discrete,
+    Integrated,
+    Cpu,
+}
+
 #[derive(Clone, Debug)]
-pub struct RenderDeviceInfo {}
+pub struct RenderDeviceInfo {
+    pub name: String,
+    pub is_cross_adapter_texture_supported: bool,
+    pub is_uma: bool,
+    pub ty: DeviceType,
+}
 
 pub trait Api: Sized {
     type Device: CommandDevice + ResourceDevice;
