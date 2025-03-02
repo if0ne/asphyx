@@ -113,6 +113,7 @@ impl<T> RenderHandleAllocator<T> {
 pub struct SparseArray<T> {
     sparse: Vec<Option<RenderHandle<T>>>,
     dense: Vec<MaybeUninit<T>>,
+    dense_to_sparse: Vec<usize>,
 }
 
 impl<T> SparseArray<T> {
@@ -136,6 +137,7 @@ impl<T> SparseArray<T> {
         } else {
             let pos = self.dense.len();
             self.dense.push(MaybeUninit::new(value));
+            self.dense_to_sparse.push(handle.index as usize);
             self.sparse[handle.index as usize] = Some(RenderHandle {
                 index: pos as u32,
                 gen: handle.gen,
@@ -170,6 +172,32 @@ impl<T> SparseArray<T> {
                 None
             }
         })
+    }
+
+    pub fn remove(&mut self, handle: RenderHandle<T>) {
+        let Some(Some(sparse_h)) = self.sparse.get(handle.index as usize) else {
+            return;
+        };
+
+        if sparse_h.gen != handle.gen {
+            return;
+        }
+
+        let dense_pos = sparse_h.index as usize;
+
+        unsafe {
+            self.dense[dense_pos].assume_init_drop();
+        }
+
+        self.dense.swap_remove(dense_pos);
+        self.dense_to_sparse.swap_remove(dense_pos);
+        self.sparse[handle.index as usize] = None;
+
+        let Some(Some(handle)) = self.sparse.get_mut(self.dense_to_sparse[dense_pos]) else {
+            return;
+        };
+
+        handle.index = dense_pos as u32;
     }
 }
 
