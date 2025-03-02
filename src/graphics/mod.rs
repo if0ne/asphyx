@@ -17,7 +17,7 @@ mod mock;
 #[enum_dispatch(RenderContext)]
 pub enum RenderContextEnum {
     #[cfg(target_os = "windows")]
-    DxRenderContext(Arc<DxRenderContext>),
+    DxRenderContext,
 }
 
 #[enum_dispatch(DynApi)]

@@ -27,7 +27,9 @@ impl DynApi for DxBackend {
         Api::enumerate_devices(self)
     }
 
-    fn create_device(&self, index: RenderDeviceId) -> RenderContextEnum {
-        RenderContextEnum::DxRenderContext(Arc::new(Api::create_device(self, index)))
+    fn create_device(&self, index: RenderDeviceId) -> Arc<RenderContextEnum> {
+        Arc::new(RenderContextEnum::DxRenderContext(Api::create_device(
+            self, index,
+        )))
     }
 }
