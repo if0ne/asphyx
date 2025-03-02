@@ -4,6 +4,7 @@ use oxidx::dx;
 
 use crate::graphics::{
     commands::CommandBufferEnum,
+    context::RenderContext,
     core::{
         commands::{CommandBufferType, CommandDevice, SyncPoint},
         handle::RenderHandle,
@@ -13,7 +14,6 @@ use crate::graphics::{
         },
         shader::{ComputePipeline, RenderPipeline},
     },
-    RenderContext,
 };
 
 use super::inner::commands::DxCommandQueue;
