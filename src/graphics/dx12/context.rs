@@ -1,7 +1,11 @@
+use std::sync::Arc;
+
+use oxidx::dx;
+
 use crate::graphics::{
     commands::CommandBufferEnum,
     core::{
-        commands::{CommandBufferType, SyncPoint},
+        commands::{CommandBufferType, CommandDevice, SyncPoint},
         handle::RenderHandle,
         resource::{
             Buffer, CreateBufferDesc, CreateSamplerDesc, CreateTextureDesc, CreateTextureViewDesc,
@@ -12,7 +16,16 @@ use crate::graphics::{
     RenderContext,
 };
 
-pub struct DxRenderContext {}
+use super::inner::commands::DxCommandQueue;
+
+#[derive(Debug)]
+pub struct DxRenderContext {
+    pub(super) gpu: dx::Device,
+
+    pub(super) gfx_queue: DxCommandQueue,
+    pub(super) compute_queue: DxCommandQueue,
+    pub(super) transfer_queue: DxCommandQueue,
+}
 
 impl RenderContext for DxRenderContext {
     fn bind_buffer(&self, handle: RenderHandle<Buffer>, desc: CreateBufferDesc) {
@@ -72,19 +85,27 @@ impl RenderContext for DxRenderContext {
         todo!()
     }
 
-    fn create_command_buffer(&self, ty: CommandBufferType) -> CommandBufferEnum {
-        todo!()
+    fn create_command_buffer(self: &Arc<Self>, ty: CommandBufferType) -> CommandBufferEnum {
+        CommandDevice::create_command_buffer(self, ty).into()
     }
 
     fn stash_cmd_buffer(&self, cmd_buffer: CommandBufferEnum) {
-        todo!()
+        if let CommandBufferEnum::DxCommandBuffer(cmd) = cmd_buffer {
+            CommandDevice::stash_cmd_buffer(self, cmd);
+        } else {
+            todo!("log")
+        }
     }
 
     fn push_cmd_buffer(&self, cmd_buffer: CommandBufferEnum) {
-        todo!()
+        if let CommandBufferEnum::DxCommandBuffer(cmd) = cmd_buffer {
+            CommandDevice::push_cmd_buffer(self, cmd);
+        } else {
+            todo!("log")
+        }
     }
 
     fn commit(&self, ty: CommandBufferType) -> SyncPoint {
-        todo!()
+        CommandDevice::commit(self, ty)
     }
 }

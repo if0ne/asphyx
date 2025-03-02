@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 pub type SyncPoint = u64;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -8,19 +10,27 @@ pub enum CommandBufferType {
 }
 
 pub trait CommandBuffer {
-    type RenderEncoder: RenderEncoder;
-    type ComputeEncoder: ComputeEncoder;
-    type TransferEncoder: TransferEncoder;
+    type RenderEncoder<'a>: RenderEncoder
+    where
+        Self: 'a;
 
-    fn render_encoder(&mut self) -> Self::RenderEncoder;
-    fn compute_encoder(&mut self) -> Self::ComputeEncoder;
-    fn transfer_encoder(&mut self) -> Self::TransferEncoder;
+    type ComputeEncoder<'a>: ComputeEncoder
+    where
+        Self: 'a;
+
+    type TransferEncoder<'a>: TransferEncoder
+    where
+        Self: 'a;
+
+    fn render_encoder(&mut self) -> Self::RenderEncoder<'_>;
+    fn compute_encoder(&mut self) -> Self::ComputeEncoder<'_>;
+    fn transfer_encoder(&mut self) -> Self::TransferEncoder<'_>;
 }
 
 pub trait CommandDevice {
     type CommandBuffer: CommandBuffer;
 
-    fn create_command_buffer(&self, ty: CommandBufferType) -> Self::CommandBuffer;
+    fn create_command_buffer(self: &Arc<Self>, ty: CommandBufferType) -> Self::CommandBuffer;
     fn stash_cmd_buffer(&self, cmd_buffer: Self::CommandBuffer);
     fn push_cmd_buffer(&self, cmd_buffer: Self::CommandBuffer);
     fn commit(&self, ty: CommandBufferType) -> SyncPoint;

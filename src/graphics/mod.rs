@@ -7,6 +7,7 @@ use core::{
     },
     shader::{ComputePipeline, RenderPipeline},
 };
+use std::sync::Arc;
 
 use commands::CommandBufferEnum;
 use dx12::context::DxRenderContext;
@@ -50,7 +51,7 @@ pub trait RenderContext {
     fn unbind_render_pipeline(&self, handle: RenderHandle<RenderPipeline>);
 
     // Commands
-    fn create_command_buffer(&self, ty: CommandBufferType) -> CommandBufferEnum;
+    fn create_command_buffer(self: &Arc<Self>, ty: CommandBufferType) -> CommandBufferEnum;
     fn stash_cmd_buffer(&self, cmd_buffer: CommandBufferEnum);
     fn push_cmd_buffer(&self, cmd_buffer: CommandBufferEnum);
     fn commit(&self, ty: CommandBufferType) -> SyncPoint;
