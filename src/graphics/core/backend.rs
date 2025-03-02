@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use super::{commands::CommandDevice, resource::ResourceDevice};
 
 pub type RenderDeviceId = usize;
@@ -10,4 +12,27 @@ pub trait Api: Sized {
 
     fn enumerate_devices<'a>(&'a self) -> impl Iterator<Item = &'a RenderDeviceInfo> + 'a;
     fn create_device(&self, index: RenderDeviceId) -> Self::Device;
+}
+
+#[derive(Clone, Debug)]
+pub struct RenderDeviceGroup<D: CommandDevice + ResourceDevice> {
+    pub primary: Arc<D>,
+    pub secondaries: Vec<Arc<D>>,
+}
+
+impl<D: CommandDevice + ResourceDevice> RenderDeviceGroup<D> {
+    pub fn new(primary: Arc<D>, secondaries: Vec<Arc<D>>) -> Self {
+        Self {
+            primary,
+            secondaries,
+        }
+    }
+
+    pub fn call(&self, func: impl Fn(&Arc<D>)) {
+        func(&self.primary);
+
+        for device in self.secondaries.iter() {
+            func(device);
+        }
+    }
 }

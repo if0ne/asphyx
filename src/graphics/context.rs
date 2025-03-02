@@ -11,6 +11,7 @@ use super::{
         },
         shader::{ComputePipeline, RenderPipeline},
     },
+    RenderContextEnum,
 };
 
 pub trait RenderContext {
@@ -47,4 +48,27 @@ pub trait RenderContext {
     fn stash_cmd_buffer(&self, cmd_buffer: CommandBufferEnum);
     fn push_cmd_buffer(&self, cmd_buffer: CommandBufferEnum);
     fn commit(&self, ty: CommandBufferType) -> SyncPoint;
+}
+
+#[derive(Clone, Debug)]
+pub struct DynRenderDeviceGroup {
+    pub primary: RenderContextEnum,
+    pub secondaries: Vec<RenderContextEnum>,
+}
+
+impl DynRenderDeviceGroup {
+    pub fn new(primary: RenderContextEnum, secondaries: Vec<RenderContextEnum>) -> Self {
+        Self {
+            primary,
+            secondaries,
+        }
+    }
+
+    pub fn call(&self, func: impl Fn(&RenderContextEnum)) {
+        func(&self.primary);
+
+        for device in self.secondaries.iter() {
+            func(device);
+        }
+    }
 }

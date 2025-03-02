@@ -3,12 +3,19 @@ use std::sync::Arc;
 use crate::graphics::{
     backend::DynApi,
     core::backend::{Api, RenderDeviceId, RenderDeviceInfo},
-    RenderContextEnum,
+    DebugFlags, RenderContextEnum,
 };
 
 use super::context::DxRenderContext;
 
+#[derive(Debug)]
 pub struct DxBackend {}
+
+impl DxBackend {
+    pub fn new(debug_flags: DebugFlags) -> Self {
+        Self {}
+    }
+}
 
 impl Api for DxBackend {
     type Device = DxRenderContext;
@@ -27,9 +34,7 @@ impl DynApi for DxBackend {
         Api::enumerate_devices(self)
     }
 
-    fn create_device(&self, index: RenderDeviceId) -> Arc<RenderContextEnum> {
-        Arc::new(RenderContextEnum::DxRenderContext(Api::create_device(
-            self, index,
-        )))
+    fn create_device(&self, index: RenderDeviceId) -> RenderContextEnum {
+        RenderContextEnum::DxRenderContext(Arc::new(Api::create_device(self, index)))
     }
 }

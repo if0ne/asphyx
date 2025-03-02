@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 bitflags = "2.8.0"
 bytemuck = "1.21.0"
+cfg-if = "1.0.0"
 enum_dispatch = "0.3.13"
 parking_lot = "0.12.3"
 static_assertions = "1.1.0"

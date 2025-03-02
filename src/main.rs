@@ -7,6 +7,7 @@ pub mod utils;
 
 use std::num::NonZero;
 
+use graphics::{DebugFlags, RenderBackend, RenderBackendSettings, RenderSystem};
 use tracing_subscriber::layer::SubscriberExt;
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
@@ -93,10 +94,17 @@ fn main() {
     let subscriber = tracing_subscriber::registry().with(console_log);
     let _ = tracing::subscriber::set_global_default(subscriber);
 
-    let event_loop = winit::event_loop::EventLoop::new().expect("failed to create event loop");
+    let render_system = RenderSystem::new(&[RenderBackendSettings {
+        api: RenderBackend::Dx12,
+        debug: DebugFlags::all(),
+    }]);
+
+    let dx_api = render_system.dx_api().unwrap();
+
+    /*let event_loop = winit::event_loop::EventLoop::new().expect("failed to create event loop");
 
     event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
 
     let mut app = Application { wnd_ctx: None };
-    event_loop.run_app(&mut app).expect("failed to run app");
+    event_loop.run_app(&mut app).expect("failed to run app");*/
 }

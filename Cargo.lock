@@ -82,6 +82,7 @@ version = "0.1.0"
 dependencies = [
  "bitflags 2.8.0",
  "bytemuck",
+ "cfg-if",
  "enum_dispatch",
  "oxidx",
  "parking_lot",

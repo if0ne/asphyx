@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use super::{
     core::backend::{RenderDeviceId, RenderDeviceInfo},
     RenderContextEnum,
@@ -7,5 +5,5 @@ use super::{
 
 pub trait DynApi {
     fn enumerate_devices<'a>(&'a self) -> impl Iterator<Item = &'a RenderDeviceInfo> + 'a;
-    fn create_device(&self, index: RenderDeviceId) -> Arc<RenderContextEnum>;
+    fn create_device(&self, index: RenderDeviceId) -> RenderContextEnum;
 }
