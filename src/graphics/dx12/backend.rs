@@ -95,6 +95,7 @@ impl DxBackend {
                         adapter,
                         RenderDeviceInfo {
                             name: desc.description().trim_matches('\0').to_string(),
+                            id: i as RenderDeviceId,
                             is_cross_adapter_texture_supported: feature
                                 .cross_adapter_row_major_texture_supported(),
                             is_uma: hardware.uma(),
@@ -138,6 +139,7 @@ impl DxBackend {
                         adapter,
                         RenderDeviceInfo {
                             name: desc.description().trim_matches('\0').to_string(),
+                            id: i,
                             is_cross_adapter_texture_supported: feature
                                 .cross_adapter_row_major_texture_supported(),
                             is_uma: hardware.uma(),

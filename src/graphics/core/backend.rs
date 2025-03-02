@@ -14,6 +14,7 @@ pub enum DeviceType {
 #[derive(Clone, Debug)]
 pub struct RenderDeviceInfo {
     pub name: String,
+    pub id: RenderDeviceId,
     pub is_cross_adapter_texture_supported: bool,
     pub is_uma: bool,
     pub ty: DeviceType,
