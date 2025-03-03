@@ -45,7 +45,7 @@ impl ResourceDevice for DxRenderContext {
             .gpu
             .create_shared_handle(heap, None)
             .expect("Failed to open handle");
-        let open_heap: dx::Heap = other
+        let open_heap: dx::Heap = self
             .gpu
             .open_shared_handle(handle)
             .expect("Failed to open heap");
