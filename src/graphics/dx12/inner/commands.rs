@@ -5,7 +5,7 @@ use parking_lot::Mutex;
 
 use crate::graphics::{
     core::commands::{CommandBufferType, SyncPoint},
-    dx12::{commands::DxCommandBuffer, context::DxRenderContext},
+    dx12::{commands::DxCommandBuffer, context::DxRenderContext, conv::map_command_buffer_type},
 };
 
 use super::sync::DxFence;
@@ -31,7 +31,7 @@ pub(crate) struct DxCommandQueue {
 impl DxCommandQueue {
     pub(crate) fn new(device: &dx::Device, ty: CommandBufferType, capacity: Option<usize>) -> Self {
         let queue = device
-            .create_command_queue(&dx::CommandQueueDesc::new(ty.into()))
+            .create_command_queue(&dx::CommandQueueDesc::new(map_command_buffer_type(ty)))
             .expect("failed to create command queue");
 
         let fence = DxFence::new(device);
@@ -44,21 +44,26 @@ impl DxCommandQueue {
         let cmd_allocators = (0..3)
             .map(|_| CommandAllocatorEntry {
                 raw: device
-                    .create_command_allocator(ty.into())
+                    .create_command_allocator(map_command_buffer_type(ty))
                     .expect("failed to create command allocator"),
                 sync_point: 0,
             })
             .collect::<VecDeque<_>>();
 
         let cmd_list = device
-            .create_command_list(0, ty.into(), &cmd_allocators[0].raw, PSO_NONE)
+            .create_command_list(
+                0,
+                map_command_buffer_type(ty),
+                &cmd_allocators[0].raw,
+                PSO_NONE,
+            )
             .expect("failed to create command list");
         cmd_list.close().expect("failed to close list");
 
         Self {
             queue: Mutex::new(queue),
             ty: ty.clone(),
-            ty_raw: ty.into(),
+            ty_raw: map_command_buffer_type(ty),
             fence,
             frequency,
 

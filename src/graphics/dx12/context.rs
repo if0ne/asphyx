@@ -12,14 +12,17 @@ use crate::graphics::{
         commands::{CommandBufferType, CommandDevice, SyncPoint},
         handle::{RenderHandle, SparseArray},
         resource::{
-            Buffer, CreateBufferDesc, CreateSamplerDesc, CreateTextureDesc, CreateTextureViewDesc,
-            ResourceDevice, Sampler, Texture,
+            Buffer, BufferDesc, ResourceDevice, Sampler, SamplerDesc, Texture, TextureDesc,
+            TextureViewDesc,
         },
         shader::{ComputePipeline, RenderPipeline},
     },
 };
 
-use super::{inner::commands::DxCommandQueue, resources::DxBuffer};
+use super::{
+    inner::commands::DxCommandQueue,
+    resources::{DxBuffer, DxTexture},
+};
 
 #[derive(Debug)]
 pub struct DxRenderContext {
@@ -33,6 +36,7 @@ pub struct DxRenderContext {
     pub(super) desc: RenderDeviceInfo,
 
     pub(super) buffers: Mutex<SparseArray<Buffer, DxBuffer>>,
+    pub(super) textures: Mutex<SparseArray<Texture, DxTexture>>,
 }
 
 impl DxRenderContext {
@@ -63,13 +67,19 @@ impl DxRenderContext {
             transfer_queue,
             desc,
             buffers: Mutex::new(SparseArray::new(128)),
+            textures: Mutex::new(SparseArray::new(128)),
         }
     }
 }
 
 impl RenderContext for DxRenderContext {
-    fn bind_buffer(&self, handle: RenderHandle<Buffer>, desc: CreateBufferDesc) {
-        let buffer = self.create_buffer(&desc);
+    fn bind_buffer(
+        &self,
+        handle: RenderHandle<Buffer>,
+        desc: BufferDesc,
+        init_data: Option<&[u8]>,
+    ) {
+        let buffer = self.create_buffer(desc, init_data);
         self.buffers.lock().set(handle, buffer);
     }
 
@@ -81,28 +91,39 @@ impl RenderContext for DxRenderContext {
         todo!()
     }
 
-    fn bind_texture(&self, handle: RenderHandle<Texture>, desc: CreateTextureDesc) {
-        todo!()
+    fn bind_texture(
+        &self,
+        handle: RenderHandle<Texture>,
+        desc: TextureDesc,
+        init_data: Option<&[u8]>,
+    ) {
+        let texture = self.create_texture(desc, init_data);
+        self.textures.lock().set(handle, texture);
     }
 
     fn unbind_texture(&self, handle: RenderHandle<Texture>) {
-        todo!()
+        self.textures.lock().remove(handle);
     }
 
     fn bind_texture_view(
         &self,
         handle: RenderHandle<Texture>,
         texture: RenderHandle<Texture>,
-        desc: CreateTextureViewDesc,
+        desc: TextureViewDesc,
     ) {
         todo!()
     }
 
     fn open_texture_handle(&self, handle: RenderHandle<Texture>, other: &Self) {
-        todo!()
+        let texture = {
+            let guard = other.textures.lock();
+            let texture = guard.get(handle).expect("Wrong handle");
+            self.open_texture(texture, other)
+        };
+        self.textures.lock().set(handle, texture);
     }
 
-    fn bind_sampler(&self, handle: RenderHandle<Sampler>, desc: CreateSamplerDesc) {
+    fn bind_sampler(&self, handle: RenderHandle<Sampler>, desc: SamplerDesc) {
         todo!()
     }
 

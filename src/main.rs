@@ -12,9 +12,12 @@ use graphics::{
     core::{
         backend::{Api, RenderDeviceGroup},
         commands::{CommandBufferType, CommandDevice},
+        resource::{ResourceDevice, TextureDesc, TextureType, TextureUsages},
+        types::Format,
     },
     DebugFlags, RenderBackend, RenderBackendSettings, RenderSystem,
 };
+
 use tracing_subscriber::layer::SubscriberExt;
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
@@ -113,19 +116,42 @@ fn main() {
 
     let devices = RenderDeviceGroup::new(gpu1, vec![gpu2]);
 
-    let handle = render_system.create_buffer_handle();
-    let handle1 = render_system.create_buffer_handle();
+    let handle = render_system.create_texture_handle();
 
     devices.call(|d| {
-        d.bind_buffer(handle, graphics::core::resource::CreateBufferDesc {});
-        d.bind_buffer(handle1, graphics::core::resource::CreateBufferDesc {});
+        d.bind_texture(
+            handle,
+            TextureDesc {
+                name: None,
+                ty: TextureType::D2,
+                width: 1280,
+                height: 720,
+                depth: 1,
+                mip_levels: 1,
+                format: Format::R32,
+                usage: TextureUsages::RenderTarget | TextureUsages::Shared,
+            },
+            None,
+        );
 
-        d.unbind_buffer(handle);
-        d.unbind_buffer(handle1);
+        d.unbind_texture(handle);
     });
 
-    render_system.free_buffer_handle(handle);
-    render_system.free_buffer_handle(handle1);
+    render_system.free_texture_handle(handle);
+
+    let handle = render_system.create_texture_handle();
+    devices.primary.bind_texture(handle, TextureDesc {
+        name: None,
+        ty: TextureType::D2,
+        width: 1280,
+        height: 720,
+        depth: 1,
+        mip_levels: 1,
+        format: Format::R32,
+        usage: TextureUsages::RenderTarget | TextureUsages::Shared,
+    }, None);
+
+    devices.secondaries[0].open_texture_handle(handle, &devices.primary);
 
     /*let event_loop = winit::event_loop::EventLoop::new().expect("failed to create event loop");
 

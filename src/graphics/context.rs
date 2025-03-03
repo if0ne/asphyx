@@ -6,8 +6,7 @@ use super::{
         commands::{CommandBufferType, SyncPoint},
         handle::RenderHandle,
         resource::{
-            Buffer, CreateBufferDesc, CreateSamplerDesc, CreateTextureDesc, CreateTextureViewDesc,
-            Sampler, Texture,
+            Buffer, BufferDesc, Sampler, SamplerDesc, Texture, TextureDesc, TextureViewDesc,
         },
         shader::{ComputePipeline, RenderPipeline},
     },
@@ -16,24 +15,29 @@ use super::{
 
 pub trait RenderContext {
     // Resources
-    fn bind_buffer(&self, handle: RenderHandle<Buffer>, desc: CreateBufferDesc);
+    fn bind_buffer(&self, handle: RenderHandle<Buffer>, desc: BufferDesc, init_data: Option<&[u8]>);
     fn unbind_buffer(&self, handle: RenderHandle<Buffer>);
 
     fn open_buffer_handle(&self, handle: RenderHandle<Buffer>, other: &Self);
 
-    fn bind_texture(&self, handle: RenderHandle<Texture>, desc: CreateTextureDesc);
+    fn bind_texture(
+        &self,
+        handle: RenderHandle<Texture>,
+        desc: TextureDesc,
+        init_data: Option<&[u8]>,
+    );
     fn unbind_texture(&self, handle: RenderHandle<Texture>);
 
     fn bind_texture_view(
         &self,
         handle: RenderHandle<Texture>,
         texture: RenderHandle<Texture>,
-        desc: CreateTextureViewDesc,
+        desc: TextureViewDesc,
     );
 
     fn open_texture_handle(&self, handle: RenderHandle<Texture>, other: &Self);
 
-    fn bind_sampler(&self, handle: RenderHandle<Sampler>, desc: CreateSamplerDesc);
+    fn bind_sampler(&self, handle: RenderHandle<Sampler>, desc: SamplerDesc);
     fn unbind_sampler(&self, handle: RenderHandle<Sampler>);
 
     // Shader
