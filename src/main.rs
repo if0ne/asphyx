@@ -12,7 +12,9 @@ use graphics::{
     core::{
         backend::{Api, RenderDeviceGroup},
         commands::{CommandBufferType, CommandDevice},
-        resource::{ResourceDevice, TextureDesc, TextureType, TextureUsages},
+        resource::{
+            BufferDesc, BufferUsages, ResourceDevice, TextureDesc, TextureType, TextureUsages,
+        },
         types::Format,
     },
     DebugFlags, RenderBackend, RenderBackendSettings, RenderSystem,
@@ -117,7 +119,6 @@ fn main() {
     let devices = RenderDeviceGroup::new(gpu1, vec![gpu2]);
 
     let handle = render_system.create_texture_handle();
-
     devices.call(|d| {
         d.bind_texture(
             handle,
@@ -136,22 +137,41 @@ fn main() {
 
         d.unbind_texture(handle);
     });
-
     render_system.free_texture_handle(handle);
 
     let handle = render_system.create_texture_handle();
-    devices.primary.bind_texture(handle, TextureDesc {
-        name: None,
-        ty: TextureType::D2,
-        width: 1280,
-        height: 720,
-        depth: 1,
-        mip_levels: 1,
-        format: Format::R32,
-        usage: TextureUsages::RenderTarget | TextureUsages::Shared,
-    }, None);
-
+    devices.primary.bind_texture(
+        handle,
+        TextureDesc {
+            name: None,
+            ty: TextureType::D2,
+            width: 1280,
+            height: 720,
+            depth: 1,
+            mip_levels: 1,
+            format: Format::R32,
+            usage: TextureUsages::RenderTarget | TextureUsages::Shared,
+        },
+        None,
+    );
     devices.secondaries[0].open_texture_handle(handle, &devices.primary);
+
+    let handle = render_system.create_buffer_handle();
+    devices.call(|d| {
+        d.bind_buffer(
+            handle,
+            BufferDesc {
+                name: None,
+                size: 256,
+                stride: 0,
+                usage: BufferUsages::Vertex,
+            },
+            None,
+        );
+
+        d.unbind_buffer(handle);
+    });
+    render_system.free_buffer_handle(handle);
 
     /*let event_loop = winit::event_loop::EventLoop::new().expect("failed to create event loop");
 

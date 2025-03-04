@@ -21,8 +21,6 @@ pub trait ResourceDevice {
     fn create_buffer<T: Pod>(&self, desc: BufferDesc, init_data: Option<&[T]>) -> Self::Buffer;
     fn destroy_buffer(&self, buffer: Self::Buffer);
 
-    fn open_buffer(&self, buffer: &Self::Buffer, other: &Self) -> Self::Buffer;
-
     fn create_texture<T: Pod>(&self, desc: TextureDesc, init_data: Option<&[T]>) -> Self::Texture;
     fn destroy_texture(&self, buffer: Self::Texture);
 
@@ -35,7 +33,12 @@ pub trait ResourceDevice {
 }
 
 #[derive(Clone, Debug)]
-pub struct BufferDesc {}
+pub struct BufferDesc {
+    pub name: Option<Cow<'static, str>>,
+    pub size: usize,
+    pub stride: usize,
+    pub usage: BufferUsages,
+}
 
 #[derive(Clone, Debug)]
 pub struct TextureDesc {
@@ -55,6 +58,18 @@ pub struct TextureViewDesc {}
 #[derive(Clone, Debug)]
 pub struct SamplerDesc {}
 
+bitflags::bitflags! {
+    #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+    pub struct BufferUsages: u32 {
+        const Copy = 1 << 0;
+        const Uniform = 1 << 1;
+        const Vertex = 1 << 2;
+        const Index = 1 << 3;
+        const Storage = 1 << 4;
+        const QueryResolve = 1 << 5;
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TextureType {
     D1,
@@ -66,10 +81,10 @@ bitflags::bitflags! {
     #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
     pub struct TextureUsages: u32 {
         const Copy = 1 << 0;
-        const Resource = 1 << 2;
-        const RenderTarget = 1 << 3;
-        const DepthTarget = 1 << 4;
-        const Storage = 1 << 5;
-        const Shared = 1 << 6;
+        const Resource = 1 << 1;
+        const RenderTarget = 1 << 2;
+        const DepthTarget = 1 << 3;
+        const Storage = 1 << 4;
+        const Shared = 1 << 5;
     }
 }

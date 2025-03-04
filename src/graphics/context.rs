@@ -18,8 +18,6 @@ pub trait RenderContext {
     fn bind_buffer(&self, handle: RenderHandle<Buffer>, desc: BufferDesc, init_data: Option<&[u8]>);
     fn unbind_buffer(&self, handle: RenderHandle<Buffer>);
 
-    fn open_buffer_handle(&self, handle: RenderHandle<Buffer>, other: &Self);
-
     fn bind_texture(
         &self,
         handle: RenderHandle<Texture>,

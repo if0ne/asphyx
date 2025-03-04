@@ -1,8 +1,8 @@
 use bytemuck::Pod;
-use oxidx::dx::{self, IDevice, IResource};
+use oxidx::dx::{self, HeapFlags, IDevice, IResource};
 
 use crate::graphics::core::resource::{
-    BufferDesc, ResourceDevice, SamplerDesc, TextureDesc, TextureType, TextureUsages,
+    BufferDesc, BufferUsages, ResourceDevice, SamplerDesc, TextureDesc, TextureType, TextureUsages,
     TextureViewDesc,
 };
 
@@ -17,16 +17,10 @@ impl ResourceDevice for DxRenderContext {
     type Sampler = ();
 
     fn create_buffer<T: Pod>(&self, desc: BufferDesc, init_data: Option<&[T]>) -> Self::Buffer {
-        DxBuffer {}
+        DxBuffer::new(self, desc)
     }
 
-    fn destroy_buffer(&self, buffer: Self::Buffer) {
-        todo!()
-    }
-
-    fn open_buffer(&self, buffer: &Self::Buffer, other: &Self) -> Self::Buffer {
-        todo!()
-    }
+    fn destroy_buffer(&self, _buffer: Self::Buffer) {}
 
     fn create_texture<T: Pod>(&self, desc: TextureDesc, init_data: Option<&[T]>) -> Self::Texture {
         DxTexture::new(self, desc)
@@ -133,7 +127,43 @@ impl ResourceDevice for DxRenderContext {
 }
 
 #[derive(Debug)]
-pub struct DxBuffer {}
+pub struct DxBuffer {
+    pub(super) raw: dx::Resource,
+    pub(super) desc: BufferDesc,
+}
+
+impl DxBuffer {
+    fn new(device: &DxRenderContext, desc: BufferDesc) -> Self {
+        let heap_props = if desc.usage.contains(BufferUsages::Uniform)
+            | desc.usage.contains(BufferUsages::Copy)
+        {
+            dx::HeapProperties::upload()
+        } else if desc.usage.contains(BufferUsages::QueryResolve) {
+            dx::HeapProperties::readback()
+        } else {
+            dx::HeapProperties::default()
+        };
+
+        let d = dx::ResourceDesc::buffer(desc.size).with_layout(dx::TextureLayout::RowMajor);
+
+        let initial_state = if desc.usage.contains(BufferUsages::Uniform)
+            | desc.usage.contains(BufferUsages::Copy)
+        {
+            dx::ResourceStates::GenericRead
+        } else if desc.usage.contains(BufferUsages::QueryResolve) {
+            dx::ResourceStates::CopyDest
+        } else {
+            dx::ResourceStates::Common
+        };
+
+        let raw = device
+            .gpu
+            .create_committed_resource(&heap_props, dx::HeapFlags::empty(), &d, initial_state, None)
+            .expect("Failed to create buffer");
+
+        Self { raw, desc }
+    }
+}
 
 #[derive(Debug)]
 pub struct DxTexture {

@@ -87,10 +87,6 @@ impl RenderContext for DxRenderContext {
         self.buffers.lock().remove(handle);
     }
 
-    fn open_buffer_handle(&self, handle: RenderHandle<Buffer>, other: &Self) {
-        todo!()
-    }
-
     fn bind_texture(
         &self,
         handle: RenderHandle<Texture>,
