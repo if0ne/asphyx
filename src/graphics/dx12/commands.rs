@@ -1,7 +1,8 @@
+use std::hint::cold_path;
 use std::marker::PhantomData;
 use std::sync::{Arc, Weak};
 
-use oxidx::dx;
+use oxidx::dx::{self, IGraphicsCommandList, IGraphicsCommandListExt};
 
 use crate::graphics::commands::{
     ComputeEncoderEnum, DynCommandBuffer, DynComputeEncoder, DynRenderEncoder, DynTransferEncoder,
@@ -11,9 +12,12 @@ use crate::graphics::commands::{
 use crate::graphics::core::commands::{
     CommandBuffer, CommandBufferType, CommandDevice, ComputeEncoder, RenderEncoder, TransferEncoder,
 };
+use crate::graphics::core::handle::RenderHandle;
+use crate::graphics::core::resource::{Buffer, Texture};
 use crate::graphics::dx12::inner::commands::CommandAllocatorEntry;
 
 use super::context::DxRenderContext;
+use super::resources::TextureState;
 
 #[derive(Debug)]
 pub struct DxCommandBuffer {
@@ -108,9 +112,93 @@ impl<'a> ComputeEncoder for DxComputeEncoder<'a> {}
 impl<'a> DynComputeEncoder<'a> for DxComputeEncoder<'a> {}
 
 pub struct DxTransferEncoder<'a> {
-    _marker: PhantomData<&'a ()>,
+    cmd_buffer: &'a mut DxCommandBuffer,
 }
 
 impl<'a> DynTransferEncoder<'a> for DxTransferEncoder<'a> {}
 
-impl<'a> TransferEncoder for DxTransferEncoder<'a> {}
+impl<'a> TransferEncoder for DxTransferEncoder<'a> {
+    fn copy_buffer_to_buffer(&self, dst: RenderHandle<Buffer>, src: RenderHandle<Buffer>) {
+        let Some(ctx) = self.cmd_buffer.ctx.upgrade() else {
+            cold_path();
+            return;
+        };
+        let guard = ctx.buffers.lock();
+
+        let Some(dst) = guard.get(dst) else {
+            cold_path();
+            return;
+        };
+
+        let Some(src) = guard.get(src) else {
+            cold_path();
+            return;
+        };
+
+        self.cmd_buffer.list.copy_resource(&dst.raw, &src.raw);
+    }
+
+    fn copy_texture_to_texture(&self, dst: RenderHandle<Texture>, src: RenderHandle<Texture>) {
+        let Some(ctx) = self.cmd_buffer.ctx.upgrade() else {
+            cold_path();
+            return;
+        };
+        let guard = ctx.textures.lock();
+
+        let Some(dst) = guard.get(dst) else {
+            cold_path();
+            return;
+        };
+
+        let Some(src) = guard.get(src) else {
+            cold_path();
+            return;
+        };
+
+        match (&dst.state, &src.state) {
+            (TextureState::Local { raw: dst_raw }, TextureState::Local { raw: src_raw }) => {
+                self.cmd_buffer.list.copy_resource(dst_raw, src_raw)
+            }
+            _ => return,
+        };
+    }
+
+    fn upload_to_texture(
+        &self,
+        dst: RenderHandle<Texture>,
+        src: RenderHandle<Buffer>,
+        data: &[u8],
+    ) {
+        let Some(ctx) = self.cmd_buffer.ctx.upgrade() else {
+            cold_path();
+            return;
+        };
+        let bguard = ctx.buffers.lock();
+        let tguard = ctx.textures.lock();
+
+        let Some(dst) = tguard.get(dst) else {
+            cold_path();
+            return;
+        };
+
+        let Some(src) = bguard.get(src) else {
+            cold_path();
+            return;
+        };
+
+        let dst_res = match &dst.state {
+            TextureState::Local { raw } => raw,
+            _ => return,
+        };
+
+        let copied = self.cmd_buffer.list.update_subresources_fixed::<1, _, _>(
+            dst_res,
+            &src.raw,
+            0,
+            0..1,
+            &[dx::SubresourceData::new(data).with_row_pitch(4 * dst.desc.width as usize)],
+        );
+
+        debug_assert!(copied > 0);
+    }
+}

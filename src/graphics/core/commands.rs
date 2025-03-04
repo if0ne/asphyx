@@ -1,5 +1,10 @@
 use std::sync::Arc;
 
+use super::{
+    handle::RenderHandle,
+    resource::{Buffer, Texture},
+};
+
 pub type SyncPoint = u64;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -40,4 +45,8 @@ pub trait RenderEncoder {}
 
 pub trait ComputeEncoder {}
 
-pub trait TransferEncoder {}
+pub trait TransferEncoder {
+    fn copy_buffer_to_buffer(&self, dst: RenderHandle<Buffer>, src: RenderHandle<Buffer>);
+    fn copy_texture_to_texture(&self, dst: RenderHandle<Texture>, src: RenderHandle<Texture>);
+    fn upload_to_texture(&self, dst: RenderHandle<Texture>, src: RenderHandle<Buffer>, data: &[u8]);
+}

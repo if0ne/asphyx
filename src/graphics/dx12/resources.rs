@@ -1,5 +1,5 @@
 use bytemuck::Pod;
-use oxidx::dx::{self, HeapFlags, IDevice, IResource};
+use oxidx::dx::{self, IDevice, IResource};
 
 use crate::graphics::core::resource::{
     BufferDesc, BufferUsages, ResourceDevice, SamplerDesc, TextureDesc, TextureType, TextureUsages,
