@@ -17,6 +17,7 @@ use crate::graphics::{
         },
         shader::{ComputePipeline, RenderPipeline},
     },
+    HandleStorage,
 };
 
 use super::{
@@ -35,12 +36,17 @@ pub struct DxRenderContext {
 
     pub(super) desc: RenderDeviceInfo,
 
+    handles: Arc<HandleStorage>,
     pub(super) buffers: Mutex<SparseArray<Buffer, DxBuffer>>,
     pub(super) textures: Mutex<SparseArray<Texture, DxTexture>>,
 }
 
 impl DxRenderContext {
-    pub(super) fn new(adapter: dx::Adapter3, desc: RenderDeviceInfo) -> Self {
+    pub(super) fn new(
+        adapter: dx::Adapter3,
+        desc: RenderDeviceInfo,
+        handles: Arc<HandleStorage>,
+    ) -> Self {
         info!(
             "Creating device with adapter {} and id {}",
             desc.name, desc.id
@@ -66,6 +72,7 @@ impl DxRenderContext {
             compute_queue,
             transfer_queue,
             desc,
+            handles,
             buffers: Mutex::new(SparseArray::new(128)),
             textures: Mutex::new(SparseArray::new(128)),
         }

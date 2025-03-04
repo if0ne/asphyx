@@ -34,8 +34,7 @@ pub enum ApiEnum {
 
 #[derive(Debug)]
 pub struct RenderSystem {
-    buffers: Mutex<RenderHandleAllocator<Buffer>>,
-    textures: Mutex<RenderHandleAllocator<Texture>>,
+    handles: Arc<HandleStorage>,
 
     backends: Vec<ApiEnum>,
 
@@ -46,21 +45,21 @@ pub struct RenderSystem {
 impl RenderSystem {
     pub fn new(backend_settings: &[RenderBackendSettings]) -> Self {
         let mut backends = Vec::with_capacity(backend_settings.len());
+        let handles = Arc::new(HandleStorage::new());
 
         cfg_if::cfg_if! {
             if #[cfg(target_os = "windows")] {
                 let dx_api = backend_settings
                     .iter()
                     .find(|b| b.api == RenderBackend::Dx12)
-                    .and_then(|settings| Some(Arc::new(DxBackend::new(settings.debug))));
+                    .and_then(|settings| Some(Arc::new(DxBackend::new(settings.debug, Arc::clone(&handles)))));
 
                 if let Some(dx) = &dx_api {
                     backends.push(ApiEnum::DxBackend(Arc::clone(dx)));
                 }
 
                 Self {
-                    buffers: Mutex::new(RenderHandleAllocator::new()),
-                    textures: Mutex::new(RenderHandleAllocator::new()),
+                    handles,
                     backends,
                     dx_api,
                 }
@@ -75,6 +74,41 @@ impl RenderSystem {
     #[cfg(target_os = "windows")]
     pub fn dx_api(&self) -> Option<Arc<DxBackend>> {
         self.dx_api.clone()
+    }
+
+    #[inline]
+    pub fn create_buffer_handle(&self) -> RenderHandle<Buffer> {
+        self.handles.create_buffer_handle()
+    }
+
+    #[inline]
+    pub fn free_buffer_handle(&self, handle: RenderHandle<Buffer>) {
+        self.handles.free_buffer_handle(handle)
+    }
+
+    #[inline]
+    pub fn create_texture_handle(&self) -> RenderHandle<Texture> {
+        self.handles.create_texture_handle()
+    }
+
+    #[inline]
+    pub fn free_texture_handle(&self, handle: RenderHandle<Texture>) {
+        self.handles.free_texture_handle(handle)
+    }
+}
+
+#[derive(Debug)]
+pub struct HandleStorage {
+    buffers: Mutex<RenderHandleAllocator<Buffer>>,
+    textures: Mutex<RenderHandleAllocator<Texture>>,
+}
+
+impl HandleStorage {
+    fn new() -> Self {
+        Self {
+            buffers: Mutex::new(RenderHandleAllocator::new()),
+            textures: Mutex::new(RenderHandleAllocator::new()),
+        }
     }
 
     #[inline]

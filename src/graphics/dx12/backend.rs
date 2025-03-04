@@ -10,13 +10,14 @@ use tracing::{debug, error, info, warn};
 use crate::graphics::{
     backend::DynApi,
     core::backend::{Api, DeviceType, RenderDeviceId, RenderDeviceInfo},
-    DebugFlags, RenderContextEnum,
+    DebugFlags, HandleStorage, RenderContextEnum,
 };
 
 use super::context::DxRenderContext;
 
 #[derive(Debug)]
 pub struct DxBackend {
+    handles: Arc<HandleStorage>,
     factory: dx::Factory4,
     debug: Option<dx::Debug1>,
 
@@ -25,7 +26,7 @@ pub struct DxBackend {
 }
 
 impl DxBackend {
-    pub fn new(debug_flags: DebugFlags) -> Self {
+    pub fn new(debug_flags: DebugFlags, handles: Arc<HandleStorage>) -> Self {
         let flags = if !debug_flags.is_empty() {
             dx::FactoryCreationFlags::Debug
         } else {
@@ -173,6 +174,7 @@ impl DxBackend {
             .for_each(|a| info!("Found adapter: {:?}", a));
 
         Self {
+            handles,
             factory,
             debug,
             adapters,
@@ -192,6 +194,7 @@ impl Api for DxBackend {
         DxRenderContext::new(
             self.adapters[index].clone(),
             self.adapter_infos[index].clone(),
+            Arc::clone(&self.handles),
         )
     }
 }
