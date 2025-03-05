@@ -36,7 +36,7 @@ pub struct DxRenderContext {
 
     pub(super) desc: RenderDeviceInfo,
 
-    handles: Arc<HandleStorage>,
+    pub(super) handles: Arc<HandleStorage>,
     pub(super) buffers: Mutex<SparseArray<Buffer, DxBuffer>>,
     pub(super) textures: Mutex<SparseArray<Texture, DxTexture>>,
 }
@@ -81,7 +81,7 @@ impl DxRenderContext {
 
 impl RenderContext for DxRenderContext {
     fn bind_buffer(
-        &self,
+        self: &Arc<Self>,
         handle: RenderHandle<Buffer>,
         desc: BufferDesc,
         init_data: Option<&[u8]>,
@@ -95,7 +95,7 @@ impl RenderContext for DxRenderContext {
     }
 
     fn bind_texture(
-        &self,
+        self: &Arc<Self>,
         handle: RenderHandle<Texture>,
         desc: TextureDesc,
         init_data: Option<&[u8]>,
@@ -150,11 +150,11 @@ impl RenderContext for DxRenderContext {
         todo!()
     }
 
-    fn create_command_buffer(self: &Arc<Self>, ty: CommandBufferType) -> CommandBufferEnum {
+    fn create_dyn_command_buffer(self: &Arc<Self>, ty: CommandBufferType) -> CommandBufferEnum {
         CommandDevice::create_command_buffer(self, ty).into()
     }
 
-    fn stash_cmd_buffer(&self, cmd_buffer: CommandBufferEnum) {
+    fn stash_dyn_cmd_buffer(&self, cmd_buffer: CommandBufferEnum) {
         if let CommandBufferEnum::DxCommandBuffer(cmd) = cmd_buffer {
             CommandDevice::stash_cmd_buffer(self, cmd);
         } else {
@@ -162,7 +162,7 @@ impl RenderContext for DxRenderContext {
         }
     }
 
-    fn push_cmd_buffer(&self, cmd_buffer: CommandBufferEnum) {
+    fn push_dyn_cmd_buffer(&self, cmd_buffer: CommandBufferEnum) {
         if let CommandBufferEnum::DxCommandBuffer(cmd) = cmd_buffer {
             CommandDevice::push_cmd_buffer(self, cmd);
         } else {
@@ -170,7 +170,7 @@ impl RenderContext for DxRenderContext {
         }
     }
 
-    fn commit(&self, ty: CommandBufferType) -> SyncPoint {
+    fn dyn_commit(&self, ty: CommandBufferType) -> SyncPoint {
         CommandDevice::commit(self, ty)
     }
 }

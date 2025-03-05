@@ -1,10 +1,5 @@
 use std::sync::Arc;
 
-use super::{
-    handle::RenderHandle,
-    resource::{Buffer, Texture},
-};
-
 pub type SyncPoint = u64;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -39,6 +34,7 @@ pub trait CommandDevice {
     fn stash_cmd_buffer(&self, cmd_buffer: Self::CommandBuffer);
     fn push_cmd_buffer(&self, cmd_buffer: Self::CommandBuffer);
     fn commit(&self, ty: CommandBufferType) -> SyncPoint;
+    fn wait_cpu(&self, ty: CommandBufferType, time: SyncPoint);
 }
 
 pub trait RenderEncoder {}
@@ -46,7 +42,10 @@ pub trait RenderEncoder {}
 pub trait ComputeEncoder {}
 
 pub trait TransferEncoder {
-    fn copy_buffer_to_buffer(&self, dst: RenderHandle<Buffer>, src: RenderHandle<Buffer>);
-    fn copy_texture_to_texture(&self, dst: RenderHandle<Texture>, src: RenderHandle<Texture>);
-    fn upload_to_texture(&self, dst: RenderHandle<Texture>, src: RenderHandle<Buffer>, data: &[u8]);
+    type Buffer;
+    type Texture;
+
+    fn copy_buffer_to_buffer(&self, dst: &Self::Buffer, src: &Self::Buffer);
+    fn copy_texture_to_texture(&self, dst: &Self::Texture, src: &Self::Texture);
+    fn upload_to_texture(&self, dst: &Self::Texture, src: &Self::Buffer, data: &[u8]);
 }

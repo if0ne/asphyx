@@ -10,14 +10,15 @@ use crate::graphics::commands::{
 };
 
 use crate::graphics::core::commands::{
-    CommandBuffer, CommandBufferType, CommandDevice, ComputeEncoder, RenderEncoder, TransferEncoder,
+    CommandBuffer, CommandBufferType, CommandDevice, ComputeEncoder, RenderEncoder, SyncPoint,
+    TransferEncoder,
 };
 use crate::graphics::core::handle::RenderHandle;
 use crate::graphics::core::resource::{Buffer, Texture};
 use crate::graphics::dx12::inner::commands::CommandAllocatorEntry;
 
 use super::context::DxRenderContext;
-use super::resources::TextureState;
+use super::resources::{DxBuffer, DxTexture, TextureState};
 
 #[derive(Debug)]
 pub struct DxCommandBuffer {
@@ -54,11 +55,25 @@ impl CommandDevice for DxRenderContext {
         }
     }
 
-    fn commit(&self, ty: CommandBufferType) -> crate::graphics::core::commands::SyncPoint {
+    fn commit(&self, ty: CommandBufferType) -> SyncPoint {
         match ty {
             CommandBufferType::Graphics => self.gfx_queue.commit(),
             CommandBufferType::Compute => self.compute_queue.commit(),
             CommandBufferType::Transfer => self.transfer_queue.commit(),
+        }
+    }
+
+    fn wait_cpu(&self, ty: CommandBufferType, time: SyncPoint) {
+        match ty {
+            CommandBufferType::Graphics => {
+                self.gfx_queue.wait_cpu(time);
+            }
+            CommandBufferType::Compute => {
+                self.compute_queue.wait_cpu(time);
+            }
+            CommandBufferType::Transfer => {
+                self.transfer_queue.wait_cpu(time);
+            }
         }
     }
 }
@@ -77,7 +92,7 @@ impl CommandBuffer for DxCommandBuffer {
     }
 
     fn transfer_encoder(&mut self) -> Self::TransferEncoder<'_> {
-        todo!()
+        DxTransferEncoder { cmd_buffer: self }
     }
 }
 
@@ -118,43 +133,14 @@ pub struct DxTransferEncoder<'a> {
 impl<'a> DynTransferEncoder<'a> for DxTransferEncoder<'a> {}
 
 impl<'a> TransferEncoder for DxTransferEncoder<'a> {
-    fn copy_buffer_to_buffer(&self, dst: RenderHandle<Buffer>, src: RenderHandle<Buffer>) {
-        let Some(ctx) = self.cmd_buffer.ctx.upgrade() else {
-            cold_path();
-            return;
-        };
-        let guard = ctx.buffers.lock();
+    type Buffer = DxBuffer;
+    type Texture = DxTexture;
 
-        let Some(dst) = guard.get(dst) else {
-            cold_path();
-            return;
-        };
-
-        let Some(src) = guard.get(src) else {
-            cold_path();
-            return;
-        };
-
+    fn copy_buffer_to_buffer(&self, dst: &Self::Buffer, src: &Self::Buffer) {
         self.cmd_buffer.list.copy_resource(&dst.raw, &src.raw);
     }
 
-    fn copy_texture_to_texture(&self, dst: RenderHandle<Texture>, src: RenderHandle<Texture>) {
-        let Some(ctx) = self.cmd_buffer.ctx.upgrade() else {
-            cold_path();
-            return;
-        };
-        let guard = ctx.textures.lock();
-
-        let Some(dst) = guard.get(dst) else {
-            cold_path();
-            return;
-        };
-
-        let Some(src) = guard.get(src) else {
-            cold_path();
-            return;
-        };
-
+    fn copy_texture_to_texture(&self, dst: &Self::Texture, src: &Self::Texture) {
         match (&dst.state, &src.state) {
             (TextureState::Local { raw: dst_raw }, TextureState::Local { raw: src_raw }) => {
                 self.cmd_buffer.list.copy_resource(dst_raw, src_raw)
@@ -163,29 +149,7 @@ impl<'a> TransferEncoder for DxTransferEncoder<'a> {
         };
     }
 
-    fn upload_to_texture(
-        &self,
-        dst: RenderHandle<Texture>,
-        src: RenderHandle<Buffer>,
-        data: &[u8],
-    ) {
-        let Some(ctx) = self.cmd_buffer.ctx.upgrade() else {
-            cold_path();
-            return;
-        };
-        let bguard = ctx.buffers.lock();
-        let tguard = ctx.textures.lock();
-
-        let Some(dst) = tguard.get(dst) else {
-            cold_path();
-            return;
-        };
-
-        let Some(src) = bguard.get(src) else {
-            cold_path();
-            return;
-        };
-
+    fn upload_to_texture(&self, dst: &Self::Texture, src: &Self::Buffer, data: &[u8]) {
         let dst_res = match &dst.state {
             TextureState::Local { raw } => raw,
             _ => return,

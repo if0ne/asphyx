@@ -1,9 +1,18 @@
+use std::sync::Arc;
+
 use bytemuck::Pod;
 use oxidx::dx::{self, IDevice, IResource};
+use parking_lot::{Mutex, MutexGuard};
 
-use crate::graphics::core::resource::{
-    BufferDesc, BufferUsages, ResourceDevice, SamplerDesc, TextureDesc, TextureType, TextureUsages,
-    TextureViewDesc,
+use crate::graphics::{
+    context::RenderContext,
+    core::{
+        commands::{CommandBuffer, CommandBufferType, CommandDevice, TransferEncoder},
+        resource::{
+            BufferDesc, BufferUsages, ResourceDevice, SamplerDesc, TextureDesc, TextureType,
+            TextureUsages, TextureViewDesc,
+        },
+    },
 };
 
 use super::{
@@ -16,14 +25,83 @@ impl ResourceDevice for DxRenderContext {
     type Texture = DxTexture;
     type Sampler = ();
 
-    fn create_buffer<T: Pod>(&self, desc: BufferDesc, init_data: Option<&[T]>) -> Self::Buffer {
-        DxBuffer::new(self, desc)
+    fn create_buffer<T: Pod>(
+        self: &Arc<Self>,
+        desc: BufferDesc,
+        init_data: Option<&[T]>,
+    ) -> Self::Buffer {
+        let buffer = DxBuffer::new(self, desc);
+
+        if let Some(data) = init_data {
+            if buffer.desc.usage.contains(BufferUsages::Copy)
+                | buffer.desc.usage.contains(BufferUsages::Uniform)
+            {
+                let mapped = buffer.map::<T>();
+                mapped.pointer.clone_from_slice(data);
+            } else if !buffer.desc.usage.contains(BufferUsages::QueryResolve) {
+                let staging_buffer = self.create_buffer(
+                    BufferDesc {
+                        name: None,
+                        size: buffer.desc.size,
+                        stride: 0,
+                        usage: BufferUsages::Copy,
+                    },
+                    Some(data),
+                );
+
+                let mut cmd = self.create_command_buffer(CommandBufferType::Transfer);
+                {
+                    let encoder = cmd.transfer_encoder();
+                    encoder.copy_buffer_to_buffer(&buffer, &staging_buffer);
+                }
+                self.push_cmd_buffer(cmd);
+                self.wait_cpu(
+                    CommandBufferType::Transfer,
+                    self.commit(CommandBufferType::Transfer),
+                );
+
+                self.destroy_buffer(staging_buffer);
+            }
+        }
+
+        buffer
     }
 
     fn destroy_buffer(&self, _buffer: Self::Buffer) {}
 
-    fn create_texture<T: Pod>(&self, desc: TextureDesc, init_data: Option<&[T]>) -> Self::Texture {
-        DxTexture::new(self, desc)
+    fn create_texture<T: Pod>(
+        self: &Arc<Self>,
+        desc: TextureDesc,
+        init_data: Option<&[T]>,
+    ) -> Self::Texture {
+        let texture = DxTexture::new(self, desc);
+
+        if let Some(data) = init_data {
+            let staging_buffer = self.create_buffer::<u8>(
+                BufferDesc {
+                    name: None,
+                    size: texture.size,
+                    stride: 0,
+                    usage: BufferUsages::Copy,
+                },
+                None,
+            );
+
+            let mut cmd = self.create_command_buffer(CommandBufferType::Transfer);
+            {
+                let encoder = cmd.transfer_encoder();
+                encoder.upload_to_texture(&texture, &staging_buffer, bytemuck::cast_slice(data));
+            }
+            self.push_cmd_buffer(cmd);
+            self.wait_cpu(
+                CommandBufferType::Transfer,
+                self.commit(CommandBufferType::Transfer),
+            );
+
+            self.destroy_buffer(staging_buffer);
+        }
+
+        texture
     }
 
     fn destroy_texture(&self, _texture: Self::Texture) {}
@@ -68,6 +146,7 @@ impl ResourceDevice for DxRenderContext {
                     heap: open_heap,
                     cross: cross_res,
                 },
+                size: texture.size,
             }
         } else {
             let d = match texture.desc.ty {
@@ -109,6 +188,7 @@ impl ResourceDevice for DxRenderContext {
                     cross: cross_res,
                     local: local_res,
                 },
+                size: texture.size,
             }
         }
     }
@@ -130,6 +210,8 @@ impl ResourceDevice for DxRenderContext {
 pub struct DxBuffer {
     pub(super) raw: dx::Resource,
     pub(super) desc: BufferDesc,
+
+    map_guard: Mutex<()>,
 }
 
 impl DxBuffer {
@@ -161,14 +243,41 @@ impl DxBuffer {
             .create_committed_resource(&heap_props, dx::HeapFlags::empty(), &d, initial_state, None)
             .expect("Failed to create buffer");
 
-        Self { raw, desc }
+        Self {
+            raw,
+            desc,
+            map_guard: Mutex::new(()),
+        }
     }
+
+    pub fn map<T>(&self) -> BufferMap<'_, T> {
+        let size = self.desc.size / size_of::<T>();
+
+        let pointer = self.raw.map::<T>(0, None).expect("Failed to map buffer");
+
+        unsafe {
+            let pointer = std::slice::from_raw_parts_mut(pointer.as_ptr(), size);
+            let guard = self.map_guard.lock();
+
+            BufferMap {
+                _guard: guard,
+                pointer,
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct BufferMap<'a, T> {
+    _guard: MutexGuard<'a, ()>,
+    pub pointer: &'a mut [T],
 }
 
 #[derive(Debug)]
 pub struct DxTexture {
     pub(super) desc: TextureDesc,
     pub(super) state: TextureState,
+    pub(super) size: usize,
 }
 
 impl DxTexture {
@@ -218,6 +327,10 @@ impl DxTexture {
                 .create_placed_resource(&heap, 0, &cross_desc, dx::ResourceStates::Common, None)
                 .expect("failed to create cross texture");
 
+            let size = device
+                .gpu
+                .get_copyable_footprints(&d, 0..1, 0, None, None, None);
+
             if d.flags().contains(dx::ResourceFlags::AllowCrossAdapter) {
                 Self {
                     desc,
@@ -225,6 +338,7 @@ impl DxTexture {
                         heap,
                         cross: cross_res,
                     },
+                    size,
                 }
             } else {
                 let local_res = device
@@ -245,9 +359,14 @@ impl DxTexture {
                         cross: cross_res,
                         local: local_res,
                     },
+                    size,
                 }
             }
         } else {
+            let size = device
+                .gpu
+                .get_copyable_footprints(&d, 0..1, 0, None, None, None);
+
             let raw = device
                 .gpu
                 .create_committed_resource(
@@ -260,6 +379,7 @@ impl DxTexture {
                 .expect("failed to create texture");
 
             Self {
+                size,
                 desc,
                 state: TextureState::Local { raw },
             }

@@ -180,6 +180,10 @@ impl DxCommandQueue {
 
         fence_value
     }
+
+    pub(crate) fn wait_cpu(&self, time: SyncPoint) {
+        self.fence.wait(time);
+    }
 }
 
 #[derive(Debug)]

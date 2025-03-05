@@ -15,11 +15,16 @@ use super::{
 
 pub trait RenderContext {
     // Resources
-    fn bind_buffer(&self, handle: RenderHandle<Buffer>, desc: BufferDesc, init_data: Option<&[u8]>);
+    fn bind_buffer(
+        self: &Arc<Self>,
+        handle: RenderHandle<Buffer>,
+        desc: BufferDesc,
+        init_data: Option<&[u8]>,
+    );
     fn unbind_buffer(&self, handle: RenderHandle<Buffer>);
 
     fn bind_texture(
-        &self,
+        self: &Arc<Self>,
         handle: RenderHandle<Texture>,
         desc: TextureDesc,
         init_data: Option<&[u8]>,
@@ -46,10 +51,10 @@ pub trait RenderContext {
     fn unbind_render_pipeline(&self, handle: RenderHandle<RenderPipeline>);
 
     // Commands
-    fn create_command_buffer(self: &Arc<Self>, ty: CommandBufferType) -> CommandBufferEnum;
-    fn stash_cmd_buffer(&self, cmd_buffer: CommandBufferEnum);
-    fn push_cmd_buffer(&self, cmd_buffer: CommandBufferEnum);
-    fn commit(&self, ty: CommandBufferType) -> SyncPoint;
+    fn create_dyn_command_buffer(self: &Arc<Self>, ty: CommandBufferType) -> CommandBufferEnum;
+    fn stash_dyn_cmd_buffer(&self, cmd_buffer: CommandBufferEnum);
+    fn push_dyn_cmd_buffer(&self, cmd_buffer: CommandBufferEnum);
+    fn dyn_commit(&self, ty: CommandBufferType) -> SyncPoint;
 }
 
 #[derive(Clone, Debug)]

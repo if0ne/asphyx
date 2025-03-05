@@ -11,10 +11,7 @@ use graphics::{
     context::RenderContext,
     core::{
         backend::{Api, RenderDeviceGroup},
-        commands::{CommandBufferType, CommandDevice},
-        resource::{
-            BufferDesc, BufferUsages, ResourceDevice, TextureDesc, TextureType, TextureUsages,
-        },
+        resource::{BufferDesc, BufferUsages, TextureDesc, TextureType, TextureUsages},
         types::Format,
     },
     DebugFlags, RenderBackend, RenderBackendSettings, RenderSystem,
@@ -125,14 +122,14 @@ fn main() {
             TextureDesc {
                 name: None,
                 ty: TextureType::D2,
-                width: 1280,
-                height: 720,
+                width: 1,
+                height: 1,
                 depth: 1,
                 mip_levels: 1,
                 format: Format::R32,
-                usage: TextureUsages::RenderTarget | TextureUsages::Shared,
+                usage: TextureUsages::RenderTarget,
             },
-            None,
+            Some(bytemuck::cast_slice(&[1.0])),
         );
 
         d.unbind_texture(handle);
@@ -156,17 +153,18 @@ fn main() {
     );
     devices.secondaries[0].open_texture_handle(handle, &devices.primary);
 
+    let data = [0u8, 1, 2, 3, 4, 5, 6, 7];
     let handle = render_system.create_buffer_handle();
     devices.call(|d| {
         d.bind_buffer(
             handle,
             BufferDesc {
                 name: None,
-                size: 256,
+                size: size_of_val(&data),
                 stride: 0,
                 usage: BufferUsages::Vertex,
             },
-            None,
+            Some(&data),
         );
 
         d.unbind_buffer(handle);

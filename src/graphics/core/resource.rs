@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, sync::Arc};
 
 use bytemuck::Pod;
 
@@ -18,10 +18,18 @@ pub trait ResourceDevice {
     type Texture;
     type Sampler;
 
-    fn create_buffer<T: Pod>(&self, desc: BufferDesc, init_data: Option<&[T]>) -> Self::Buffer;
+    fn create_buffer<T: Pod>(
+        self: &Arc<Self>,
+        desc: BufferDesc,
+        init_data: Option<&[T]>,
+    ) -> Self::Buffer;
     fn destroy_buffer(&self, buffer: Self::Buffer);
 
-    fn create_texture<T: Pod>(&self, desc: TextureDesc, init_data: Option<&[T]>) -> Self::Texture;
+    fn create_texture<T: Pod>(
+        self: &Arc<Self>,
+        desc: TextureDesc,
+        init_data: Option<&[T]>,
+    ) -> Self::Texture;
     fn destroy_texture(&self, buffer: Self::Texture);
 
     fn create_texture_view(&self, texture: &Self::Texture, desc: TextureViewDesc) -> Self::Texture;
