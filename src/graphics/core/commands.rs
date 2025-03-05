@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use super::{
+    handle::RenderHandle,
+    resource::{Buffer, Texture},
+};
 
 pub type SyncPoint = u64;
 
@@ -48,4 +51,10 @@ pub trait TransferEncoder {
     fn copy_buffer_to_buffer(&self, dst: &Self::Buffer, src: &Self::Buffer);
     fn copy_texture_to_texture(&self, dst: &Self::Texture, src: &Self::Texture);
     fn upload_to_texture(&self, dst: &Self::Texture, src: &Self::Buffer, data: &[u8]);
+}
+
+pub trait PublicTransferEncoder {
+    fn copy_buffer_to_buffer(&self, dst: RenderHandle<Buffer>, src: RenderHandle<Buffer>);
+    fn copy_texture_to_texture(&self, dst: RenderHandle<Texture>, src: RenderHandle<Texture>);
+    fn upload_to_texture(&self, dst: RenderHandle<Texture>, src: RenderHandle<Buffer>, data: &[u8]);
 }
