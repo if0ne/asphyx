@@ -4,13 +4,9 @@ use core::{
 };
 use std::sync::Arc;
 
-use enum_dispatch::enum_dispatch;
-
-use dx12::{backend::DxBackend, context::DxRenderContext};
+use dx12::backend::DxBackend;
 use parking_lot::Mutex;
 
-pub mod backend;
-pub mod commands;
 pub mod context;
 pub mod core;
 
@@ -19,24 +15,9 @@ mod dx12;
 
 mod mock;
 
-#[enum_dispatch(RenderContext)]
-#[derive(Clone, Debug)]
-pub enum RenderContextEnum {
-    #[cfg(target_os = "windows")]
-    DxRenderContext(Arc<DxRenderContext>),
-}
-
-#[enum_dispatch(DynApi)]
-#[derive(Debug)]
-pub enum ApiEnum {
-    DxBackend(Arc<DxBackend>),
-}
-
 #[derive(Debug)]
 pub struct RenderSystem {
-    handles: Arc<HandleStorage>,
-
-    backends: Vec<ApiEnum>,
+    handles: HandleStorage,
 
     #[cfg(target_os = "windows")]
     dx_api: Option<Arc<DxBackend>>,
@@ -44,31 +25,19 @@ pub struct RenderSystem {
 
 impl RenderSystem {
     pub fn new(backend_settings: &[RenderBackendSettings]) -> Self {
-        let mut backends = Vec::with_capacity(backend_settings.len());
-        let handles = Arc::new(HandleStorage::new());
-
         cfg_if::cfg_if! {
             if #[cfg(target_os = "windows")] {
                 let dx_api = backend_settings
                     .iter()
                     .find(|b| b.api == RenderBackend::Dx12)
-                    .and_then(|settings| Some(Arc::new(DxBackend::new(settings.debug, Arc::clone(&handles)))));
-
-                if let Some(dx) = &dx_api {
-                    backends.push(ApiEnum::DxBackend(Arc::clone(dx)));
-                }
+                    .and_then(|settings| Some(Arc::new(DxBackend::new(settings.debug))));
 
                 Self {
-                    handles,
-                    backends,
+                    handles: HandleStorage::new(),
                     dx_api,
                 }
             }
         }
-    }
-
-    pub fn backends<'a>(&'a self) -> impl Iterator<Item = &'a ApiEnum> {
-        self.backends.iter()
     }
 
     #[cfg(target_os = "windows")]

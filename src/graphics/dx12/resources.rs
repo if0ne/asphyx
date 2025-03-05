@@ -1,17 +1,12 @@
-use std::sync::Arc;
-
 use bytemuck::Pod;
 use oxidx::dx::{self, IDevice, IResource};
 use parking_lot::{Mutex, MutexGuard};
 
-use crate::graphics::{
-    context::RenderContext,
-    core::{
-        commands::{CommandBuffer, CommandBufferType, CommandDevice, TransferEncoder},
-        resource::{
-            BufferDesc, BufferUsages, ResourceDevice, SamplerDesc, TextureDesc, TextureType,
-            TextureUsages, TextureViewDesc,
-        },
+use crate::graphics::core::{
+    commands::{CommandBuffer, CommandBufferType, CommandDevice, TransferEncoder},
+    resource::{
+        BufferDesc, BufferUsages, ResourceDevice, SamplerDesc, TextureDesc, TextureType,
+        TextureUsages, TextureViewDesc,
     },
 };
 
@@ -25,11 +20,7 @@ impl ResourceDevice for DxRenderContext {
     type Texture = DxTexture;
     type Sampler = ();
 
-    fn create_buffer<T: Pod>(
-        self: &Arc<Self>,
-        desc: BufferDesc,
-        init_data: Option<&[T]>,
-    ) -> Self::Buffer {
+    fn create_buffer<T: Pod>(&self, desc: BufferDesc, init_data: Option<&[T]>) -> Self::Buffer {
         let buffer = DxBuffer::new(self, desc);
 
         if let Some(data) = init_data {
@@ -69,11 +60,7 @@ impl ResourceDevice for DxRenderContext {
 
     fn destroy_buffer(&self, _buffer: Self::Buffer) {}
 
-    fn create_texture<T: Pod>(
-        self: &Arc<Self>,
-        desc: TextureDesc,
-        init_data: Option<&[T]>,
-    ) -> Self::Texture {
+    fn create_texture<T: Pod>(&self, desc: TextureDesc, init_data: Option<&[T]>) -> Self::Texture {
         let texture = DxTexture::new(self, desc);
 
         if let Some(data) = init_data {

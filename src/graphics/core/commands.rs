@@ -30,7 +30,7 @@ pub trait CommandBuffer {
 pub trait CommandDevice {
     type CommandBuffer: CommandBuffer;
 
-    fn create_command_buffer(self: &Arc<Self>, ty: CommandBufferType) -> Self::CommandBuffer;
+    fn create_command_buffer(&self, ty: CommandBufferType) -> Self::CommandBuffer;
     fn stash_cmd_buffer(&self, cmd_buffer: Self::CommandBuffer);
     fn push_cmd_buffer(&self, cmd_buffer: Self::CommandBuffer);
     fn commit(&self, ty: CommandBufferType) -> SyncPoint;

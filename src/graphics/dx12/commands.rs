@@ -1,20 +1,12 @@
-use std::hint::cold_path;
 use std::marker::PhantomData;
 use std::sync::{Arc, Weak};
 
 use oxidx::dx::{self, IGraphicsCommandList, IGraphicsCommandListExt};
 
-use crate::graphics::commands::{
-    ComputeEncoderEnum, DynCommandBuffer, DynComputeEncoder, DynRenderEncoder, DynTransferEncoder,
-    RenderEncoderEnum, TransferEncoderEnum,
-};
-
 use crate::graphics::core::commands::{
     CommandBuffer, CommandBufferType, CommandDevice, ComputeEncoder, RenderEncoder, SyncPoint,
     TransferEncoder,
 };
-use crate::graphics::core::handle::RenderHandle;
-use crate::graphics::core::resource::{Buffer, Texture};
 use crate::graphics::dx12::inner::commands::CommandAllocatorEntry;
 
 use super::context::DxRenderContext;
@@ -22,7 +14,6 @@ use super::resources::{DxBuffer, DxTexture, TextureState};
 
 #[derive(Debug)]
 pub struct DxCommandBuffer {
-    pub(super) ctx: Weak<DxRenderContext>,
     pub(super) ty: CommandBufferType,
     pub(super) list: dx::GraphicsCommandList,
     pub(super) allocator: CommandAllocatorEntry,
@@ -31,11 +22,11 @@ pub struct DxCommandBuffer {
 impl CommandDevice for DxRenderContext {
     type CommandBuffer = DxCommandBuffer;
 
-    fn create_command_buffer(self: &Arc<Self>, ty: CommandBufferType) -> Self::CommandBuffer {
+    fn create_command_buffer(&self, ty: CommandBufferType) -> Self::CommandBuffer {
         match ty {
-            CommandBufferType::Graphics => self.gfx_queue.create_command_buffer(self),
-            CommandBufferType::Compute => self.compute_queue.create_command_buffer(self),
-            CommandBufferType::Transfer => self.transfer_queue.create_command_buffer(self),
+            CommandBufferType::Graphics => self.gfx_queue.create_command_buffer(),
+            CommandBufferType::Compute => self.compute_queue.create_command_buffer(),
+            CommandBufferType::Transfer => self.transfer_queue.create_command_buffer(),
         }
     }
 
@@ -96,27 +87,11 @@ impl CommandBuffer for DxCommandBuffer {
     }
 }
 
-impl DynCommandBuffer for DxCommandBuffer {
-    fn render_encoder(&mut self) -> RenderEncoderEnum<'_> {
-        todo!()
-    }
-
-    fn compute_encoder(&mut self) -> ComputeEncoderEnum<'_> {
-        todo!()
-    }
-
-    fn transfer_encoder(&mut self) -> TransferEncoderEnum<'_> {
-        todo!()
-    }
-}
-
 pub struct DxRenderEncoder<'a> {
     _marker: PhantomData<&'a ()>,
 }
 
 impl<'a> RenderEncoder for DxRenderEncoder<'a> {}
-
-impl<'a> DynRenderEncoder<'a> for DxRenderEncoder<'a> {}
 
 pub struct DxComputeEncoder<'a> {
     _marker: PhantomData<&'a ()>,
@@ -124,13 +99,9 @@ pub struct DxComputeEncoder<'a> {
 
 impl<'a> ComputeEncoder for DxComputeEncoder<'a> {}
 
-impl<'a> DynComputeEncoder<'a> for DxComputeEncoder<'a> {}
-
 pub struct DxTransferEncoder<'a> {
     cmd_buffer: &'a mut DxCommandBuffer,
 }
-
-impl<'a> DynTransferEncoder<'a> for DxTransferEncoder<'a> {}
 
 impl<'a> TransferEncoder for DxTransferEncoder<'a> {
     type Buffer = DxBuffer;

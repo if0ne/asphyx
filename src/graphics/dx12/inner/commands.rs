@@ -1,17 +1,18 @@
-use std::{collections::VecDeque, sync::Arc};
+use std::collections::VecDeque;
 
 use oxidx::dx::{self, ICommandAllocator, ICommandQueue, IDevice, IGraphicsCommandList, PSO_NONE};
 use parking_lot::Mutex;
 
 use crate::graphics::{
     core::commands::{CommandBufferType, SyncPoint},
-    dx12::{commands::DxCommandBuffer, context::DxRenderContext, conv::map_command_buffer_type},
+    dx12::{commands::DxCommandBuffer, conv::map_command_buffer_type},
 };
 
 use super::sync::DxFence;
 
 #[derive(Debug)]
 pub(crate) struct DxCommandQueue {
+    device: dx::Device,
     queue: Mutex<dx::CommandQueue>,
     ty_raw: dx::CommandListType,
     ty: CommandBufferType,
@@ -61,6 +62,7 @@ impl DxCommandQueue {
         cmd_list.close().expect("failed to close list");
 
         Self {
+            device: device.clone(),
             queue: Mutex::new(queue),
             ty: ty.clone(),
             ty_raw: map_command_buffer_type(ty),
@@ -93,7 +95,7 @@ impl DxCommandQueue {
         self.signal(&self.fence)
     }
 
-    pub(crate) fn create_command_buffer(&self, device: &Arc<DxRenderContext>) -> DxCommandBuffer {
+    pub(crate) fn create_command_buffer(&self) -> DxCommandBuffer {
         if let Some(buffer) = self.in_record.lock().pop() {
             return buffer;
         };
@@ -120,8 +122,8 @@ impl DxCommandQueue {
                 entry
             } else {
                 CommandAllocatorEntry {
-                    raw: device
-                        .gpu
+                    raw: self
+                        .device
                         .create_command_allocator(self.ty_raw)
                         .expect("failed to create command allocator"),
                     sync_point: 0,
@@ -134,8 +136,8 @@ impl DxCommandQueue {
                 .expect("Failed to reset list");
             list
         } else {
-            let list = device
-                .gpu
+            let list = self
+                .device
                 .create_command_list(0, self.ty_raw, &allocator.raw, PSO_NONE)
                 .expect("failed to create command list");
             list.close().expect("failed to close list");
@@ -143,7 +145,6 @@ impl DxCommandQueue {
         };
 
         DxCommandBuffer {
-            ctx: Arc::downgrade(device),
             ty: self.ty,
             list,
             allocator,

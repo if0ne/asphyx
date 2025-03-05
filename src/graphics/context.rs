@@ -1,16 +1,9 @@
 use std::sync::Arc;
 
-use super::{
-    commands::CommandBufferEnum,
-    core::{
-        commands::{CommandBufferType, SyncPoint},
-        handle::RenderHandle,
-        resource::{
-            Buffer, BufferDesc, Sampler, SamplerDesc, Texture, TextureDesc, TextureViewDesc,
-        },
-        shader::{ComputePipeline, RenderPipeline},
-    },
-    RenderContextEnum,
+use super::core::{
+    handle::RenderHandle,
+    resource::{Buffer, BufferDesc, Sampler, SamplerDesc, Texture, TextureDesc, TextureViewDesc},
+    shader::{ComputePipeline, RenderPipeline},
 };
 
 pub trait RenderContext {
@@ -49,33 +42,4 @@ pub trait RenderContext {
 
     fn bind_render_pipeline(&self, handle: RenderHandle<RenderPipeline>, desc: ());
     fn unbind_render_pipeline(&self, handle: RenderHandle<RenderPipeline>);
-
-    // Commands
-    fn create_dyn_command_buffer(self: &Arc<Self>, ty: CommandBufferType) -> CommandBufferEnum;
-    fn stash_dyn_cmd_buffer(&self, cmd_buffer: CommandBufferEnum);
-    fn push_dyn_cmd_buffer(&self, cmd_buffer: CommandBufferEnum);
-    fn dyn_commit(&self, ty: CommandBufferType) -> SyncPoint;
-}
-
-#[derive(Clone, Debug)]
-pub struct DynRenderDeviceGroup {
-    pub primary: RenderContextEnum,
-    pub secondaries: Vec<RenderContextEnum>,
-}
-
-impl DynRenderDeviceGroup {
-    pub fn new(primary: RenderContextEnum, secondaries: Vec<RenderContextEnum>) -> Self {
-        Self {
-            primary,
-            secondaries,
-        }
-    }
-
-    pub fn call(&self, func: impl Fn(&RenderContextEnum)) {
-        func(&self.primary);
-
-        for device in self.secondaries.iter() {
-            func(device);
-        }
-    }
 }

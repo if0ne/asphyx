@@ -5,7 +5,6 @@ use parking_lot::Mutex;
 use tracing::info;
 
 use crate::graphics::{
-    commands::CommandBufferEnum,
     context::RenderContext,
     core::{
         backend::RenderDeviceInfo,
@@ -36,17 +35,12 @@ pub struct DxRenderContext {
 
     pub(super) desc: RenderDeviceInfo,
 
-    pub(super) handles: Arc<HandleStorage>,
     pub(super) buffers: Mutex<SparseArray<Buffer, DxBuffer>>,
     pub(super) textures: Mutex<SparseArray<Texture, DxTexture>>,
 }
 
 impl DxRenderContext {
-    pub(super) fn new(
-        adapter: dx::Adapter3,
-        desc: RenderDeviceInfo,
-        handles: Arc<HandleStorage>,
-    ) -> Self {
+    pub(super) fn new(adapter: dx::Adapter3, desc: RenderDeviceInfo) -> Self {
         info!(
             "Creating device with adapter {} and id {}",
             desc.name, desc.id
@@ -72,7 +66,6 @@ impl DxRenderContext {
             compute_queue,
             transfer_queue,
             desc,
-            handles,
             buffers: Mutex::new(SparseArray::new(128)),
             textures: Mutex::new(SparseArray::new(128)),
         }
@@ -148,29 +141,5 @@ impl RenderContext for DxRenderContext {
 
     fn unbind_render_pipeline(&self, handle: RenderHandle<RenderPipeline>) {
         todo!()
-    }
-
-    fn create_dyn_command_buffer(self: &Arc<Self>, ty: CommandBufferType) -> CommandBufferEnum {
-        CommandDevice::create_command_buffer(self, ty).into()
-    }
-
-    fn stash_dyn_cmd_buffer(&self, cmd_buffer: CommandBufferEnum) {
-        if let CommandBufferEnum::DxCommandBuffer(cmd) = cmd_buffer {
-            CommandDevice::stash_cmd_buffer(self, cmd);
-        } else {
-            todo!("log")
-        }
-    }
-
-    fn push_dyn_cmd_buffer(&self, cmd_buffer: CommandBufferEnum) {
-        if let CommandBufferEnum::DxCommandBuffer(cmd) = cmd_buffer {
-            CommandDevice::push_cmd_buffer(self, cmd);
-        } else {
-            todo!("log")
-        }
-    }
-
-    fn dyn_commit(&self, ty: CommandBufferType) -> SyncPoint {
-        CommandDevice::commit(self, ty)
     }
 }
