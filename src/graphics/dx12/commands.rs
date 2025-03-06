@@ -80,6 +80,9 @@ impl CommandDevice for DxRenderContext {
 }
 
 impl CommandBuffer for DxCommandBuffer {
+    type BufferBarrier<'a> = (&'a DxBuffer, dx::ResourceStates);
+    type TextureBarrier<'a> = (&'a DxTexture, dx::ResourceStates, bool);
+
     type RenderEncoder<'a> = DxRenderEncoder<'a>;
     type ComputeEncoder<'a> = DxComputeEncoder<'a>;
     type TransferEncoder<'a> = DxTransferEncoder<'a>;
@@ -94,6 +97,68 @@ impl CommandBuffer for DxCommandBuffer {
 
     fn transfer_encoder(&mut self) -> Self::TransferEncoder<'_> {
         DxTransferEncoder { cmd_buffer: self }
+    }
+
+    fn set_buffer_barriers(&self, barriers: &[Self::BufferBarrier<'_>]) {
+        let barriers = barriers
+            .iter()
+            .filter_map(|(b, s)| {
+                let mut old_state = b.state.lock();
+
+                if *old_state == *s {
+                    return None;
+                }
+
+                let barrier = Some(dx::ResourceBarrier::transition(
+                    &b.raw, *old_state, *s, None,
+                ));
+                *old_state = *s;
+
+                barrier
+            })
+            .collect::<Vec<_>>();
+
+        if !barriers.is_empty() {
+            self.list.resource_barrier(&barriers);
+        }
+    }
+
+    fn set_texture_barriers(&self, barriers: &[Self::TextureBarrier<'_>]) {
+        let barriers = barriers
+            .iter()
+            .filter_map(|(t, s, b)| {
+                let (raw, mut old_state) = match &t.state {
+                    TextureState::Local { raw, state } => (raw, state.lock()),
+                    TextureState::CrossAdapter { cross, state, .. } => (cross, state.lock()),
+                    TextureState::Binded {
+                        local,
+                        cross,
+                        local_state,
+                        cross_state,
+                        ..
+                    } => {
+                        if *b {
+                            (cross, cross_state.lock())
+                        } else {
+                            (local, local_state.lock())
+                        }
+                    }
+                };
+
+                if *old_state == *s {
+                    return None;
+                }
+
+                let barrier = Some(dx::ResourceBarrier::transition(raw, *old_state, *s, None));
+                *old_state = *s;
+
+                barrier
+            })
+            .collect::<Vec<_>>();
+
+        if !barriers.is_empty() {
+            self.list.resource_barrier(&barriers);
+        }
     }
 }
 
@@ -123,16 +188,17 @@ impl<'a> TransferEncoder for DxTransferEncoder<'a> {
 
     fn copy_texture_to_texture(&self, dst: &Self::Texture, src: &Self::Texture) {
         match (&dst.state, &src.state) {
-            (TextureState::Local { raw: dst_raw }, TextureState::Local { raw: src_raw }) => {
-                self.cmd_buffer.list.copy_resource(dst_raw, src_raw)
-            }
+            (
+                TextureState::Local { raw: dst_raw, .. },
+                TextureState::Local { raw: src_raw, .. },
+            ) => self.cmd_buffer.list.copy_resource(dst_raw, src_raw),
             _ => return,
         };
     }
 
     fn upload_to_texture(&self, dst: &Self::Texture, src: &Self::Buffer, data: &[u8]) {
         let dst_res = match &dst.state {
-            TextureState::Local { raw } => raw,
+            TextureState::Local { raw, .. } => raw,
             _ => return,
         };
 

@@ -1,6 +1,7 @@
 use std::num::NonZero;
 
 use oxidx::dx::{self, IFactory4, ISwapchain1};
+use parking_lot::Mutex;
 
 use crate::graphics::core::{
     commands::SyncPoint,
@@ -100,7 +101,10 @@ impl Swapchain {
                     format: Format::Rgba8Unorm,
                     usage: TextureUsages::RenderTarget,
                 },
-                state: TextureState::Local { raw: res },
+                state: TextureState::Local {
+                    raw: res,
+                    state: Mutex::new(dx::ResourceStates::Common),
+                },
                 size: 0, // TODO: Calculate
             };
 

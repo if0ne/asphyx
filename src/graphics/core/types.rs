@@ -9,3 +9,10 @@ pub enum Format {
     Rgb32,
     Rgba32,
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ResourceState {
+    Common,
+    RenderTarget,
+    Present,
+}

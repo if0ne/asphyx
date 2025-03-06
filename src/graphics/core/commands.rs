@@ -1,6 +1,7 @@
 use super::{
     handle::RenderHandle,
     resource::{Buffer, Texture},
+    types::ResourceState,
 };
 
 pub type SyncPoint = u64;
@@ -13,6 +14,9 @@ pub enum CommandBufferType {
 }
 
 pub trait CommandBuffer {
+    type BufferBarrier<'a>;
+    type TextureBarrier<'a>;
+
     type RenderEncoder<'a>: RenderEncoder
     where
         Self: 'a;
@@ -28,6 +32,9 @@ pub trait CommandBuffer {
     fn render_encoder(&mut self) -> Self::RenderEncoder<'_>;
     fn compute_encoder(&mut self) -> Self::ComputeEncoder<'_>;
     fn transfer_encoder(&mut self) -> Self::TransferEncoder<'_>;
+
+    fn set_buffer_barriers(&self, barriers: &[Self::BufferBarrier<'_>]);
+    fn set_texture_barriers(&self, barriers: &[Self::TextureBarrier<'_>]);
 }
 
 pub trait CommandDevice {

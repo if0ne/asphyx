@@ -96,7 +96,7 @@ impl ResourceDevice for DxRenderContext {
     fn open_texture(&self, texture: &Self::Texture, other: &Self) -> Self::Texture {
         let (heap, desc) = match &texture.state {
             TextureState::Local { .. } => panic!("Texture is local, can not open handle"),
-            TextureState::CrossAdapter { heap, cross } => (heap, cross.get_desc()),
+            TextureState::CrossAdapter { heap, cross, .. } => (heap, cross.get_desc()),
             TextureState::Binded { heap, cross, .. } => (heap, cross.get_desc()),
         };
 
@@ -132,6 +132,7 @@ impl ResourceDevice for DxRenderContext {
                 state: TextureState::CrossAdapter {
                     heap: open_heap,
                     cross: cross_res,
+                    state: Mutex::new(dx::ResourceStates::Common),
                 },
                 size: texture.size,
             }
@@ -174,6 +175,8 @@ impl ResourceDevice for DxRenderContext {
                     heap: open_heap,
                     cross: cross_res,
                     local: local_res,
+                    local_state: Mutex::new(dx::ResourceStates::Common),
+                    cross_state: Mutex::new(dx::ResourceStates::Common),
                 },
                 size: texture.size,
             }
@@ -197,6 +200,7 @@ impl ResourceDevice for DxRenderContext {
 pub struct DxBuffer {
     pub(super) raw: dx::Resource,
     pub(super) desc: BufferDesc,
+    pub(super) state: Mutex<dx::ResourceStates>,
 
     map_guard: Mutex<()>,
 }
@@ -233,6 +237,7 @@ impl DxBuffer {
         Self {
             raw,
             desc,
+            state: Mutex::new(initial_state),
             map_guard: Mutex::new(()),
         }
     }
@@ -324,6 +329,7 @@ impl DxTexture {
                     state: TextureState::CrossAdapter {
                         heap,
                         cross: cross_res,
+                        state: Mutex::new(dx::ResourceStates::Common),
                     },
                     size,
                 }
@@ -345,6 +351,9 @@ impl DxTexture {
                         heap,
                         cross: cross_res,
                         local: local_res,
+
+                        local_state: Mutex::new(dx::ResourceStates::Common),
+                        cross_state: Mutex::new(dx::ResourceStates::Common),
                     },
                     size,
                 }
@@ -368,7 +377,10 @@ impl DxTexture {
             Self {
                 size,
                 desc,
-                state: TextureState::Local { raw },
+                state: TextureState::Local {
+                    raw,
+                    state: Mutex::new(dx::ResourceStates::Common),
+                },
             }
         }
     }
@@ -378,14 +390,19 @@ impl DxTexture {
 pub enum TextureState {
     Local {
         raw: dx::Resource,
+        state: Mutex<dx::ResourceStates>,
     },
     CrossAdapter {
         heap: dx::Heap,
         cross: dx::Resource,
+        state: Mutex<dx::ResourceStates>,
     },
     Binded {
         heap: dx::Heap,
         cross: dx::Resource,
         local: dx::Resource,
+
+        local_state: Mutex<dx::ResourceStates>,
+        cross_state: Mutex<dx::ResourceStates>,
     },
 }
