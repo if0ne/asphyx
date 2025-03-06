@@ -40,9 +40,15 @@ pub trait CommandDevice {
     fn wait_cpu(&self, ty: CommandBufferType, time: SyncPoint);
 }
 
+// TODO: Split abstraction level
+
 pub trait RenderEncoder {}
 
+pub trait DynRenderEncoder: RenderEncoder {}
+
 pub trait ComputeEncoder {}
+
+pub trait DynComputeEncoder: ComputeEncoder {}
 
 pub trait TransferEncoder {
     type Buffer;
@@ -53,8 +59,10 @@ pub trait TransferEncoder {
     fn upload_to_texture(&self, dst: &Self::Texture, src: &Self::Buffer, data: &[u8]);
 }
 
-pub trait PublicTransferEncoder {
+pub trait DynTransferEncoder: TransferEncoder {
     fn copy_buffer_to_buffer(&self, dst: RenderHandle<Buffer>, src: RenderHandle<Buffer>);
+
     fn copy_texture_to_texture(&self, dst: RenderHandle<Texture>, src: RenderHandle<Texture>);
+
     fn upload_to_texture(&self, dst: RenderHandle<Texture>, src: RenderHandle<Buffer>, data: &[u8]);
 }

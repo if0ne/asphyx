@@ -1,11 +1,11 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, sync::Arc};
 
 use oxidx::dx::{self, ICommandAllocator, ICommandQueue, IDevice, IGraphicsCommandList, PSO_NONE};
 use parking_lot::Mutex;
 
 use crate::graphics::{
     core::commands::{CommandBufferType, SyncPoint},
-    dx12::{commands::DxCommandBuffer, conv::map_command_buffer_type},
+    dx12::{commands::DxCommandBuffer, context::HandleStorage, conv::map_command_buffer_type},
 };
 
 use super::sync::DxFence;
@@ -95,7 +95,7 @@ impl DxCommandQueue {
         self.signal(&self.fence)
     }
 
-    pub(crate) fn create_command_buffer(&self) -> DxCommandBuffer {
+    pub(crate) fn create_command_buffer(&self, handles: Arc<HandleStorage>) -> DxCommandBuffer {
         if let Some(buffer) = self.in_record.lock().pop() {
             return buffer;
         };
@@ -145,6 +145,7 @@ impl DxCommandQueue {
         };
 
         DxCommandBuffer {
+            handles,
             ty: self.ty,
             list,
             allocator,

@@ -1,19 +1,23 @@
+use std::hint::cold_path;
 use std::marker::PhantomData;
-use std::sync::{Arc, Weak};
+use std::sync::Arc;
 
 use oxidx::dx::{self, IGraphicsCommandList, IGraphicsCommandListExt};
 
 use crate::graphics::core::commands::{
-    CommandBuffer, CommandBufferType, CommandDevice, ComputeEncoder, RenderEncoder, SyncPoint,
-    TransferEncoder,
+    CommandBuffer, CommandBufferType, CommandDevice, ComputeEncoder, DynTransferEncoder,
+    RenderEncoder, SyncPoint, TransferEncoder,
 };
+use crate::graphics::core::handle::RenderHandle;
+use crate::graphics::core::resource::{Buffer, Texture};
 use crate::graphics::dx12::inner::commands::CommandAllocatorEntry;
 
-use super::context::DxRenderContext;
+use super::context::{DxRenderContext, HandleStorage};
 use super::resources::{DxBuffer, DxTexture, TextureState};
 
 #[derive(Debug)]
 pub struct DxCommandBuffer {
+    pub(super) handles: Arc<HandleStorage>,
     pub(super) ty: CommandBufferType,
     pub(super) list: dx::GraphicsCommandList,
     pub(super) allocator: CommandAllocatorEntry,
@@ -24,9 +28,15 @@ impl CommandDevice for DxRenderContext {
 
     fn create_command_buffer(&self, ty: CommandBufferType) -> Self::CommandBuffer {
         match ty {
-            CommandBufferType::Graphics => self.gfx_queue.create_command_buffer(),
-            CommandBufferType::Compute => self.compute_queue.create_command_buffer(),
-            CommandBufferType::Transfer => self.transfer_queue.create_command_buffer(),
+            CommandBufferType::Graphics => self
+                .gfx_queue
+                .create_command_buffer(Arc::clone(&self.handles)),
+            CommandBufferType::Compute => self
+                .compute_queue
+                .create_command_buffer(Arc::clone(&self.handles)),
+            CommandBufferType::Transfer => self
+                .transfer_queue
+                .create_command_buffer(Arc::clone(&self.handles)),
         }
     }
 
@@ -135,5 +145,61 @@ impl<'a> TransferEncoder for DxTransferEncoder<'a> {
         );
 
         debug_assert!(copied > 0);
+    }
+}
+
+impl<'a> DynTransferEncoder for DxTransferEncoder<'a> {
+    fn copy_buffer_to_buffer(&self, dst: RenderHandle<Buffer>, src: RenderHandle<Buffer>) {
+        let guard = self.cmd_buffer.handles.buffers.lock();
+
+        let Some(dst) = guard.get(dst) else {
+            cold_path();
+            return;
+        };
+
+        let Some(src) = guard.get(src) else {
+            cold_path();
+            return;
+        };
+
+        <Self as TransferEncoder>::copy_buffer_to_buffer(&self, dst, src);
+    }
+
+    fn copy_texture_to_texture(&self, dst: RenderHandle<Texture>, src: RenderHandle<Texture>) {
+        let guard = self.cmd_buffer.handles.textures.lock();
+
+        let Some(dst) = guard.get(dst) else {
+            cold_path();
+            return;
+        };
+
+        let Some(src) = guard.get(src) else {
+            cold_path();
+            return;
+        };
+
+        <Self as TransferEncoder>::copy_texture_to_texture(&self, dst, src);
+    }
+
+    fn upload_to_texture(
+        &self,
+        dst: RenderHandle<Texture>,
+        src: RenderHandle<Buffer>,
+        data: &[u8],
+    ) {
+        let bguard = self.cmd_buffer.handles.buffers.lock();
+        let tguard = self.cmd_buffer.handles.textures.lock();
+
+        let Some(dst) = tguard.get(dst) else {
+            cold_path();
+            return;
+        };
+
+        let Some(src) = bguard.get(src) else {
+            cold_path();
+            return;
+        };
+
+        <Self as TransferEncoder>::upload_to_texture(&self, dst, src, data);
     }
 }

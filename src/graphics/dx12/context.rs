@@ -8,7 +8,7 @@ use crate::graphics::{
     context::RenderContext,
     core::{
         backend::RenderDeviceInfo,
-        commands::{CommandBufferType, CommandDevice, SyncPoint},
+        commands::CommandBufferType,
         handle::{RenderHandle, SparseArray},
         resource::{
             Buffer, BufferDesc, ResourceDevice, Sampler, SamplerDesc, Texture, TextureDesc,
@@ -16,7 +16,6 @@ use crate::graphics::{
         },
         shader::{ComputePipeline, RenderPipeline},
     },
-    HandleStorage,
 };
 
 use super::{
@@ -35,8 +34,7 @@ pub struct DxRenderContext {
 
     pub(super) desc: RenderDeviceInfo,
 
-    pub(super) buffers: Mutex<SparseArray<Buffer, DxBuffer>>,
-    pub(super) textures: Mutex<SparseArray<Texture, DxTexture>>,
+    pub(super) handles: Arc<HandleStorage>,
 }
 
 impl DxRenderContext {
@@ -66,8 +64,10 @@ impl DxRenderContext {
             compute_queue,
             transfer_queue,
             desc,
-            buffers: Mutex::new(SparseArray::new(128)),
-            textures: Mutex::new(SparseArray::new(128)),
+            handles: Arc::new(HandleStorage {
+                buffers: Mutex::new(SparseArray::new(128)),
+                textures: Mutex::new(SparseArray::new(128)),
+            }),
         }
     }
 }
@@ -80,11 +80,11 @@ impl RenderContext for DxRenderContext {
         init_data: Option<&[u8]>,
     ) {
         let buffer = self.create_buffer(desc, init_data);
-        self.buffers.lock().set(handle, buffer);
+        self.handles.buffers.lock().set(handle, buffer);
     }
 
     fn unbind_buffer(&self, handle: RenderHandle<Buffer>) {
-        self.buffers.lock().remove(handle);
+        self.handles.buffers.lock().remove(handle);
     }
 
     fn bind_texture(
@@ -94,11 +94,11 @@ impl RenderContext for DxRenderContext {
         init_data: Option<&[u8]>,
     ) {
         let texture = self.create_texture(desc, init_data);
-        self.textures.lock().set(handle, texture);
+        self.handles.textures.lock().set(handle, texture);
     }
 
     fn unbind_texture(&self, handle: RenderHandle<Texture>) {
-        self.textures.lock().remove(handle);
+        self.handles.textures.lock().remove(handle);
     }
 
     fn bind_texture_view(
@@ -112,11 +112,11 @@ impl RenderContext for DxRenderContext {
 
     fn open_texture_handle(&self, handle: RenderHandle<Texture>, other: &Self) {
         let texture = {
-            let guard = other.textures.lock();
+            let guard = other.handles.textures.lock();
             let texture = guard.get(handle).expect("Wrong handle");
             self.open_texture(texture, other)
         };
-        self.textures.lock().set(handle, texture);
+        self.handles.textures.lock().set(handle, texture);
     }
 
     fn bind_sampler(&self, handle: RenderHandle<Sampler>, desc: SamplerDesc) {
@@ -142,4 +142,10 @@ impl RenderContext for DxRenderContext {
     fn unbind_render_pipeline(&self, handle: RenderHandle<RenderPipeline>) {
         todo!()
     }
+}
+
+#[derive(Debug)]
+pub(super) struct HandleStorage {
+    pub(super) buffers: Mutex<SparseArray<Buffer, DxBuffer>>,
+    pub(super) textures: Mutex<SparseArray<Texture, DxTexture>>,
 }

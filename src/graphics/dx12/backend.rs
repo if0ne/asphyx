@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use oxidx::dx::{
     self,
     features::{Architecture1Feature, OptionsFeature},
@@ -9,7 +7,7 @@ use tracing::{debug, error, info, warn};
 
 use crate::graphics::{
     core::backend::{Api, DeviceType, RenderDeviceId, RenderDeviceInfo},
-    DebugFlags, HandleStorage,
+    DebugFlags,
 };
 
 use super::context::DxRenderContext;
