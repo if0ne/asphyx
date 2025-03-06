@@ -27,6 +27,7 @@ use super::{
 pub struct DxRenderContext {
     pub(super) gpu: dx::Device,
     adapter: dx::Adapter3,
+    pub(super) factory: dx::Factory4,
 
     pub(super) gfx_queue: DxCommandQueue,
     pub(super) compute_queue: DxCommandQueue,
@@ -38,7 +39,11 @@ pub struct DxRenderContext {
 }
 
 impl DxRenderContext {
-    pub(super) fn new(adapter: dx::Adapter3, desc: RenderDeviceInfo) -> Self {
+    pub(super) fn new(
+        adapter: dx::Adapter3,
+        factory: dx::Factory4,
+        desc: RenderDeviceInfo,
+    ) -> Self {
         info!(
             "Creating device with adapter {} and id {}",
             desc.name, desc.id
@@ -60,6 +65,7 @@ impl DxRenderContext {
         Self {
             gpu: device,
             adapter,
+            factory,
             gfx_queue,
             compute_queue,
             transfer_queue,

@@ -13,7 +13,7 @@ use super::sync::DxFence;
 #[derive(Debug)]
 pub(crate) struct DxCommandQueue {
     device: dx::Device,
-    queue: Mutex<dx::CommandQueue>,
+    pub(crate) queue: Mutex<dx::CommandQueue>,
     ty_raw: dx::CommandListType,
     ty: CommandBufferType,
 
