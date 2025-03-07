@@ -32,9 +32,9 @@ impl PartialOrd for InnerRange {
 
 #[derive(Debug)]
 pub(crate) struct Descriptor {
-    pub(super) ty: dx::DescriptorHeapType,
-    pub(super) cpu: dx::CpuDescriptorHandle,
-    pub(super) gpu: dx::GpuDescriptorHandle,
+    pub(crate) ty: dx::DescriptorHeapType,
+    pub(crate) cpu: dx::CpuDescriptorHandle,
+    pub(crate) gpu: dx::GpuDescriptorHandle,
     heap_index: InnerRange,
 }
 
@@ -69,11 +69,12 @@ pub(crate) struct DescriptorHeap {
     pub(crate) size: usize,
     pub(crate) inc_size: usize,
     free_ranges: BinaryHeap<Reverse<InnerRange>>,
+    shader_visible: bool,
 }
 
 impl DescriptorHeap {
     pub(crate) fn new(device: &dx::Device, ty: dx::DescriptorHeapType, size: usize) -> Self {
-        let (_, flags) =
+        let (shader_visible, flags) =
             if ty == dx::DescriptorHeapType::CbvSrvUav || ty == dx::DescriptorHeapType::Sampler {
                 (true, dx::DescriptorHeapFlags::ShaderVisible)
             } else {
@@ -95,10 +96,11 @@ impl DescriptorHeap {
             size,
             inc_size,
             free_ranges,
+            shader_visible,
         }
     }
 
-    pub(super) fn alloc(&mut self, size: usize) -> Descriptor {
+    pub(crate) fn alloc(&mut self, size: usize) -> Descriptor {
         let mut temp = Vec::new();
         let mut allocated = None;
 
@@ -135,10 +137,13 @@ impl DescriptorHeap {
             .heap
             .get_cpu_descriptor_handle_for_heap_start()
             .advance(allocated.start, self.inc_size);
-        let gpu = self
+        let gpu = if self.shader_visible { self
             .heap
             .get_gpu_descriptor_handle_for_heap_start()
-            .advance(allocated.start, self.inc_size);
+            .advance(allocated.start, self.inc_size)
+        } else {
+            dx::GpuDescriptorHandle::default()
+        };
 
         Descriptor {
             ty: self.ty,
@@ -148,7 +153,7 @@ impl DescriptorHeap {
         }
     }
 
-    pub(super) fn free(&mut self, descriptor: Descriptor) {
+    pub(crate) fn free(&mut self, descriptor: Descriptor) {
         let mut merged = descriptor.heap_index;
         let mut temp = Vec::new();
 

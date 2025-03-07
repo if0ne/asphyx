@@ -13,6 +13,7 @@ use crate::graphics::core::{
 use super::{
     context::DxRenderContext,
     conv::{map_format, map_texture_flags},
+    inner::descriptors::Descriptor,
 };
 
 impl ResourceDevice for DxRenderContext {
@@ -127,6 +128,20 @@ impl ResourceDevice for DxRenderContext {
             .expect("Failed to create cross texture");
 
         if flags.contains(dx::ResourceFlags::AllowCrossAdapter) {
+            let descriptor = if desc.flags().contains(dx::ResourceFlags::AllowRenderTarget) {
+                let descriptor = self.descriptors.rtv_heap.lock().alloc(1);
+                self.gpu
+                    .create_render_target_view(Some(&cross_res), None, descriptor.cpu);
+                Some(descriptor)
+            } else if desc.flags().contains(dx::ResourceFlags::AllowDepthStencil) {
+                let descriptor = self.descriptors.dsv_heap.lock().alloc(1);
+                self.gpu
+                    .create_depth_stencil_view(Some(&cross_res), None, descriptor.cpu);
+                Some(descriptor)
+            } else {
+                None
+            };
+
             DxTexture {
                 desc: texture.desc.clone(),
                 state: TextureState::CrossAdapter {
@@ -135,6 +150,7 @@ impl ResourceDevice for DxRenderContext {
                     state: Mutex::new(dx::ResourceStates::Common),
                 },
                 size: texture.size,
+                descriptor,
             }
         } else {
             let d = match texture.desc.ty {
@@ -169,6 +185,20 @@ impl ResourceDevice for DxRenderContext {
                 )
                 .expect("failed to create texture");
 
+            let descriptor = if desc.flags().contains(dx::ResourceFlags::AllowRenderTarget) {
+                let descriptor = self.descriptors.rtv_heap.lock().alloc(1);
+                self.gpu
+                    .create_render_target_view(Some(&local_res), None, descriptor.cpu);
+                Some(descriptor)
+            } else if desc.flags().contains(dx::ResourceFlags::AllowDepthStencil) {
+                let descriptor = self.descriptors.dsv_heap.lock().alloc(1);
+                self.gpu
+                    .create_depth_stencil_view(Some(&local_res), None, descriptor.cpu);
+                Some(descriptor)
+            } else {
+                None
+            };
+
             DxTexture {
                 desc: texture.desc.clone(),
                 state: TextureState::Binded {
@@ -179,6 +209,7 @@ impl ResourceDevice for DxRenderContext {
                     cross_state: Mutex::new(dx::ResourceStates::Common),
                 },
                 size: texture.size,
+                descriptor,
             }
         }
     }
@@ -270,6 +301,7 @@ pub struct DxTexture {
     pub(super) desc: TextureDesc,
     pub(super) state: TextureState,
     pub(super) size: usize,
+    pub(super) descriptor: Option<Descriptor>,
 }
 
 impl DxTexture {
@@ -324,6 +356,22 @@ impl DxTexture {
                 .get_copyable_footprints(&d, 0..1, 0, None, None, None);
 
             if d.flags().contains(dx::ResourceFlags::AllowCrossAdapter) {
+                let descriptor = if d.flags().contains(dx::ResourceFlags::AllowRenderTarget) {
+                    let descriptor = device.descriptors.rtv_heap.lock().alloc(1);
+                    device
+                        .gpu
+                        .create_render_target_view(Some(&cross_res), None, descriptor.cpu);
+                    Some(descriptor)
+                } else if d.flags().contains(dx::ResourceFlags::AllowDepthStencil) {
+                    let descriptor = device.descriptors.dsv_heap.lock().alloc(1);
+                    device
+                        .gpu
+                        .create_depth_stencil_view(Some(&cross_res), None, descriptor.cpu);
+                    Some(descriptor)
+                } else {
+                    None
+                };
+
                 Self {
                     desc,
                     state: TextureState::CrossAdapter {
@@ -332,6 +380,7 @@ impl DxTexture {
                         state: Mutex::new(dx::ResourceStates::Common),
                     },
                     size,
+                    descriptor,
                 }
             } else {
                 let local_res = device
@@ -345,6 +394,22 @@ impl DxTexture {
                     )
                     .expect("failed to create texture");
 
+                let descriptor = if d.flags().contains(dx::ResourceFlags::AllowRenderTarget) {
+                    let descriptor = device.descriptors.rtv_heap.lock().alloc(1);
+                    device
+                        .gpu
+                        .create_render_target_view(Some(&local_res), None, descriptor.cpu);
+                    Some(descriptor)
+                } else if d.flags().contains(dx::ResourceFlags::AllowDepthStencil) {
+                    let descriptor = device.descriptors.dsv_heap.lock().alloc(1);
+                    device
+                        .gpu
+                        .create_depth_stencil_view(Some(&local_res), None, descriptor.cpu);
+                    Some(descriptor)
+                } else {
+                    None
+                };
+
                 Self {
                     desc,
                     state: TextureState::Binded {
@@ -356,6 +421,7 @@ impl DxTexture {
                         cross_state: Mutex::new(dx::ResourceStates::Common),
                     },
                     size,
+                    descriptor,
                 }
             }
         } else {
@@ -374,6 +440,22 @@ impl DxTexture {
                 )
                 .expect("failed to create texture");
 
+            let descriptor = if d.flags().contains(dx::ResourceFlags::AllowRenderTarget) {
+                let descriptor = device.descriptors.rtv_heap.lock().alloc(1);
+                device
+                    .gpu
+                    .create_render_target_view(Some(&raw), None, descriptor.cpu);
+                Some(descriptor)
+            } else if d.flags().contains(dx::ResourceFlags::AllowDepthStencil) {
+                let descriptor = device.descriptors.dsv_heap.lock().alloc(1);
+                device
+                    .gpu
+                    .create_depth_stencil_view(Some(&raw), None, descriptor.cpu);
+                Some(descriptor)
+            } else {
+                None
+            };
+
             Self {
                 size,
                 desc,
@@ -381,6 +463,7 @@ impl DxTexture {
                     raw,
                     state: Mutex::new(dx::ResourceStates::Common),
                 },
+                descriptor,
             }
         }
     }

@@ -1,6 +1,6 @@
 use std::num::NonZero;
 
-use oxidx::dx::{self, IFactory4, ISwapchain1};
+use oxidx::dx::{self, IDevice, IFactory4, ISwapchain1};
 use parking_lot::Mutex;
 
 use crate::graphics::core::{
@@ -62,14 +62,20 @@ impl RenderSwapchain for DxRenderContext {
             resources: vec![],
             desc,
         };
-        swapchain.resize(width, height, 0);
+        swapchain.resize(self, width, height, 0);
 
         swapchain
     }
 }
 
 impl Swapchain {
-    pub fn resize(&mut self, width: u32, height: u32, sync_point: SyncPoint) {
+    pub fn resize(
+        &mut self,
+        ctx: &DxRenderContext,
+        width: u32,
+        height: u32,
+        sync_point: SyncPoint,
+    ) {
         {
             std::mem::take(&mut self.resources);
         }
@@ -90,6 +96,11 @@ impl Swapchain {
                 .get_buffer(i)
                 .expect("Failed to get swapchain buffer");
 
+            let descriptor = ctx.descriptors.rtv_heap.lock().alloc(1);
+            ctx.gpu
+                .create_render_target_view(Some(&res), None, descriptor.cpu);
+            let descriptor = Some(descriptor);
+
             let texture = DxTexture {
                 desc: TextureDesc {
                     name: None,
@@ -106,6 +117,7 @@ impl Swapchain {
                     state: Mutex::new(dx::ResourceStates::Common),
                 },
                 size: 0, // TODO: Calculate
+                descriptor,
             };
 
             self.resources.push(SwapchainFrame {
