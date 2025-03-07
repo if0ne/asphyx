@@ -19,7 +19,7 @@ use crate::graphics::{
 };
 
 use super::{
-    inner::commands::DxCommandQueue,
+    inner::{commands::DxCommandQueue, descriptors::Descriptors},
     resources::{DxBuffer, DxTexture},
 };
 
@@ -36,6 +36,7 @@ pub struct DxRenderContext {
     pub(super) desc: RenderDeviceInfo,
 
     pub(super) handles: Arc<HandleStorage>,
+    pub(super) descriptors: Arc<Descriptors>,
 }
 
 impl DxRenderContext {
@@ -62,6 +63,8 @@ impl DxRenderContext {
         let compute_queue = DxCommandQueue::new(&device, CommandBufferType::Compute, None);
         let transfer_queue = DxCommandQueue::new(&device, CommandBufferType::Transfer, None);
 
+        let descriptors = Arc::new(Descriptors::new(&device));
+
         Self {
             gpu: device,
             adapter,
@@ -74,6 +77,7 @@ impl DxRenderContext {
                 buffers: Mutex::new(SparseArray::new(128)),
                 textures: Mutex::new(SparseArray::new(128)),
             }),
+            descriptors,
         }
     }
 }
